@@ -1,26 +1,6 @@
 /* Upper Room theme tokens.
-   The <html> element carries the theme class (noir, cyber or glass) and `dark` when dark mode is on.
+   The <html> element carries the theme class (cyber or glass) and `dark` when dark mode is on.
    Dark mode follows the phone's setting (prefers-color-scheme) unless the player picks Light or Dark. */
-
-/* ---------- Luxury Noir ---------- */
-.noir {
-  --color-bg: #FFFFFF; --color-surface: #F7F5F1; --color-text: #0A0A0A; --color-text-muted: #68645D;
-  --color-border: #E3DED5; --color-primary: #86672F; --color-secondary: #0A0A0A; --color-tertiary: #F2EEE6;
-  --color-on-primary: #FFFFFF; --color-danger: #B3261E;
-  --font-display: 'Bodoni Moda', Georgia, 'Times New Roman', serif;
-  --font-body: 'Josefin Sans', system-ui, -apple-system, sans-serif;
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 22px; --space-6: 28px; --space-7: 30px; --space-8: 44px;
-  --radius-sm: 0px; --radius-md: 0px; --radius-lg: 0px; --radius-pill: 999px;
-  --shadow-1: none; --shadow-2: none; --icon-stroke: 1.1px; --icon-linecap: round;
-  --fill-strong: var(--color-primary); --on-fill-strong: var(--color-on-primary);
-  color-scheme: light;
-}
-.noir.dark {
-  --color-bg: #000000; --color-surface: #0D0D0D; --color-text: #F4EFE6; --color-text-muted: #8E8980;
-  --color-border: #2A2723; --color-primary: #C9A96E; --color-secondary: #F4EFE6; --color-tertiary: #1A1814;
-  --color-on-primary: #000000; --color-danger: #E07A5F;
-  color-scheme: dark;
-}
 
 /* ---------- Cyberpunk Glitch ---------- */
 .cyber {

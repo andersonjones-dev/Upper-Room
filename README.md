@@ -6,7 +6,7 @@ Bible party games where everyone plays on their own phone. One phone hosts and b
 
 **Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
 
-**Themes:** Luxury Noir, Cyberpunk Glitch, Stained Glass, each in light and dark. The host's theme shows on every phone in the room.
+**Themes:** Cyberpunk Glitch and Stained Glass, each in light and dark (Luxury Noir was removed in 1.2.1). The host's theme shows on every phone in the room.
 
 © 2026 Anderson Jones. Scripture quotations are from the King James Version (public domain).
 

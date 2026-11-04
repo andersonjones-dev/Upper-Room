@@ -23,7 +23,7 @@ const S = {
 };
 S.drafts.name = S.profile.name || '';
 if (params.get('join')) { S.view = 'join'; S.drafts.code = L.cleanCode(params.get('join')); }
-if (!['noir', 'cyber', 'glass'].includes(S.prefs.theme)) S.prefs.theme = DEFAULT_THEME;
+if (!['cyber', 'glass'].includes(S.prefs.theme)) S.prefs.theme = DEFAULT_THEME; // Luxury Noir was removed in 1.2.1
 
 const $view = document.getElementById('view');
 const $overlay = document.getElementById('overlay');
@@ -33,16 +33,15 @@ const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } ca
 
 /* =================== Theme =================== */
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
-const BG = { noir: ['#FFFFFF', '#000000'], cyber: ['#EEEDE8', '#0A0A0F'], glass: ['#F4EFE6', '#1B1530'] };
+const BG = { cyber: ['#EEEDE8', '#0A0A0F'], glass: ['#F4EFE6', '#1B1530'] };
 const FONTS = {
-  noir: 'family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=Josefin+Sans:wght@400;600;700',
   cyber: 'family=Chakra+Petch:wght@400;600;700',
   glass: 'family=Cinzel:wght@400;700&family=Crimson+Pro:wght@400;600;700'
 };
 let lastThemeKey = '', lastThemeColor = '';
 function activeTheme() {
   const rt = S.room && S.room.meta && S.room.meta.theme;
-  return ['noir', 'cyber', 'glass'].includes(rt) ? rt : S.prefs.theme;
+  return ['cyber', 'glass'].includes(rt) ? rt : S.prefs.theme;
 }
 function applyTheme() {
   const theme = activeTheme();
@@ -151,10 +150,9 @@ function viewHome() {
   return {
     cls: 'spread',
     secs: [
-      ['hdr', `<div class="hdr"><span class="only-noir hdr-sp" aria-hidden="true"></span><span class="brand">Upper Room</span>${iconBtn('menu', 'menu', 'Settings')}</div>`],
+      ['hdr', `<div class="hdr"><span class="brand">Upper Room</span>${iconBtn('menu', 'menu', 'Settings')}</div>`],
       ['deco', `<div class="hazard only-cyber" aria-hidden="true"></div>
-        <div class="homegrid" aria-hidden="true"><div class="win"><div class="arch only-glass"><div class="rose"></div></div><div class="grid4">${tiles}</div></div><span class="syscode only-cyber">SYS//UR-12 · ROOM</span></div>
-        <div class="orn only-noir" aria-hidden="true"><span class="hair"></span><span class="gem"></span><span class="mono">UR</span><span class="gem"></span><span class="hair"></span></div>`],
+        <div class="homegrid" aria-hidden="true"><div class="win"><div class="arch only-glass"><div class="rose"></div></div><div class="grid4">${tiles}</div></div><span class="syscode only-cyber">SYS//UR-12 · ROOM</span></div>`],
       ['hero', `<div class="hero"><h1 class="h1">Gather<br>the room.</h1><p class="sub">Everyone plays on their own phone. This one becomes the table.</p></div>`],
       ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? 'Connecting…' : 'Host a room'}</button><button class="btn btn-s" data-act="goJoin">Join with a code</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
       ['card', `<div class="card row between"><div class="col"><span class="card-title">Ready to play</span><span class="det small muted">Verse Scramble · Twelve Tribes · Emoji Bible</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
@@ -357,7 +355,7 @@ function hostPlay() {
       const refs = data.opt.map((k) => (k < 2 ? x.t[k][1] : null));
       secs.push(['refs', `<div class="col" style="gap:4px">${refs.map((r, i) => (r ? `<span class="small muted">${LETTERS[i]} is true · ${esc(r)}</span>` : '')).join('')}</div>`]);
       secs.push(['rn', note(true, `${LETTERS[right]} was the lie`, esc(x.lie[1]))]);
-      secs.push(['res', `<span class="lbl">Spotted it</span>${resultList(res.order, () => 'Spotted the lie', res.pts)}`]);
+      secs.push(['res', `<span class="lbl">Spotted it</span>${resultList(res.order, (uid, i) => `${i === 0 ? 'First' : L.ordinal(i + 1)} · ${L.fmtSecs(Math.max(0, ((ans[uid] || {}).at || rd.startedAt) - rd.startedAt))}`, res.pts)}`]);
     } else secs.push(['cnt', answeredRow(ans, 'Votes in')]);
   }
 
@@ -527,7 +525,7 @@ function playerPlay() {
     const x = TWO_TRUTHS[item], opts = G.options('tt', item, data), right = G.correctOption('tt', item, data);
     secs.push(['h', head(esc(x.who), `Spot the lie · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
     secs.push(['opts', optButtons(opts, picked, right, reveal, true)]);
-    if (reveal) choiceResult(right, esc(x.lie[1]), `${LETTERS[right]} was the lie. ${esc(x.lie[1])}`);
+    if (reveal) choiceResult(right, `${typeof mine.at === 'number' ? 'Your time ' + L.fmtSecs(Math.max(0, mine.at - rd.startedAt)) + '. ' : ''}${esc(x.lie[1])}`, `${LETTERS[right]} was the lie. ${esc(x.lie[1])}`);
     else if (picked !== null) secs.push(['n', `<div class="pill" role="status">Vote in · you can change it until the reveal</div>`]);
     else secs.push(['n', `<span class="lbl">Tap the lie · your vote is secret</span>`]);
   }
@@ -614,7 +612,7 @@ function playerResults() {
   return {
     cls: '',
     secs: [
-      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">You finished</span><div class="orn only-noir" style="width:100%" aria-hidden="true"><span class="hair"></span><span class="gem"></span><span class="hair"></span></div><span class="big">${idx >= 0 ? L.ordinal(idx + 1) : '–'}</span><span class="title sm">${me.score} points</span></div>`],
+      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">You finished</span><span class="big">${idx >= 0 ? L.ordinal(idx + 1) : '–'}</span><span class="title sm">${me.score} points</span></div>`],
       ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">Points</span></div><div class="stat"><span class="stat-v">${me.correct || 0}</span><span class="stat-l">Rounds scored</span></div><div class="stat"><span class="stat-v">${rows.length}</span><span class="stat-l">Players</span></div></div>`],
       ['wait', `<p class="small muted center" style="margin:0;text-align:center">The host can start another game. Stay here to play again.</p><button class="btn btn-s" data-act="leave">Leave room</button>`]
     ]
@@ -623,7 +621,7 @@ function playerResults() {
 
 /* ----- Sheets ----- */
 function sheetWrap(inner) {
-  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="sheet-mono only-noir" aria-hidden="true">UR</div>${inner}<button class="btn btn-s" data-act="closeSheet">Close</button></div></div>`;
+  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${inner}<button class="btn btn-s" data-act="closeSheet">Close</button></div></div>`;
 }
 function sheetMenu() {
   const inRoom = S.view === 'room' && S.room && S.room.meta;
@@ -637,7 +635,7 @@ function sheetMenu() {
     roomBtn = '<button class="btn btn-s" data-act="leave">Leave room</button>';
   }
   return sheetWrap(`<h2 class="title md" id="sheetTitle" tabindex="-1">Settings</h2>
-    <div class="col" style="gap:10px"><span class="lbl">Theme</span>${chips('theme', S.prefs.theme, [['noir', 'Luxury Noir'], ['cyber', 'Cyberpunk'], ['glass', 'Stained Glass']])}${roomNote}</div>
+    <div class="col" style="gap:10px"><span class="lbl">Theme</span>${chips('theme', S.prefs.theme, [['cyber', 'Cyberpunk'], ['glass', 'Stained Glass']])}${roomNote}</div>
     <div class="col" style="gap:10px"><span class="lbl">Light or dark</span>${chips('mode', S.prefs.mode, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])}</div>
     ${roomBtn}
     <p class="small muted center" style="margin:0;text-align:center">Upper Room ${APP_VERSION} · © 2026 Anderson Jones<br>Scripture from the King James Version (public domain)</p>`);
@@ -757,7 +755,7 @@ function scoreRound(rd, ans) {
   if (['vs', 'bk', 'hg'].includes(rd.game)) return L.scoreScramble(ans);
   if (rd.game === 'em') return L.scoreEmoji(ans);
   const right = G.correctOption(rd.game, item, rd.data || {});
-  return rd.game === 'tt' ? L.scoreVote(ans, right) : L.scoreTrivia(ans, right);
+  return L.scoreTrivia(ans, right);
 }
 function hostReveal() {
   const rd = S.room.round, ans = ((S.room.answers || {})[rd.i]) || {};

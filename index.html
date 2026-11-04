@@ -22,7 +22,7 @@
     (function () {
       try {
         var p = JSON.parse(localStorage.getItem('ur.prefs')) || {};
-        var t = ['noir', 'cyber', 'glass'].indexOf(p.theme) >= 0 ? p.theme : 'glass';
+        var t = ['cyber', 'glass'].indexOf(p.theme) >= 0 ? p.theme : 'glass';
         var m = p.mode || 'auto';
         var dark = m === 'dark' || (m === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
         document.documentElement.className = t + (dark ? ' dark' : '');

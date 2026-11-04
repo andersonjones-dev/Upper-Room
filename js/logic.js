@@ -7,7 +7,7 @@ export const GAMES = [
   { id: 'bk', n: '03', sym: 'Bk', name: 'Books Sort', mode: 'Race', c: 'amber', ready: true,
     how: 'Six books of the Bible, jumbled. Drag them, or tap two to swap, into Bible order. A wrong check costs 3 seconds.' },
   { id: 'tt', n: '04', sym: '2T', name: 'Two Truths & a Lie', mode: 'Vote', c: 'amethyst', ready: true,
-    how: 'Three statements about a Bible person. Two are true. Vote for the lie on your phone; you can change your vote until the reveal.' },
+    how: 'Three statements about a Bible person. Two are true. Vote for the lie on your phone. First right answer gets a bonus; changing your vote resets your time.' },
   { id: 'fv', n: '05', sym: 'Fv', name: 'Finish the Verse', mode: 'Teams', c: 'emerald', ready: true, teams: true,
     how: 'The start of a verse is shown. Pick the right ending on your phone. Every right answer scores for your team; first right gets a bonus.' },
   { id: 'tl', n: '06', sym: 'Tl', name: 'Bible Timeline', mode: 'Place', c: 'teal', ready: true,
@@ -131,14 +131,6 @@ export function scoreTrivia(ans, correct) {
   const ok = ranked(Object.entries(ans || {}).filter(([, a]) => a && a.a === correct && typeof a.at === 'number'), (a) => a.at);
   const pts = {}, order = [];
   ok.forEach(([u], i) => { pts[u] = i === 0 ? 200 : 100; order.push(u); });
-  return { pts, order, first: order[0] || null };
-}
-
-/** Two Truths & a Lie: 200 for every player who spots the lie. */
-export function scoreVote(ans, correct) {
-  const ok = ranked(Object.entries(ans || {}).filter(([, a]) => a && a.a === correct), (a) => a.at || 0);
-  const pts = {}, order = [];
-  ok.forEach(([u]) => { pts[u] = 200; order.push(u); });
   return { pts, order, first: order[0] || null };
 }
 

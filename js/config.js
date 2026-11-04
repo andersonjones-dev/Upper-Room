@@ -1,7 +1,7 @@
 // Upper Room settings you can edit on GitHub without touching the app.
 // The Firebase web config is public by design; access is controlled by database.rules.json.
 
-export const APP_VERSION = '1.2.0';
+export const APP_VERSION = '1.2.1';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyCnAaJo1-F0ALDRHebgAwl5faF6eazl-mE',
@@ -13,5 +13,5 @@ export const firebaseConfig = {
   appId: '1:546284654256:web:8ed25831df790324fe7575'
 };
 
-// Theme a brand-new phone starts with: 'noir', 'cyber' or 'glass'.
+// Theme a brand-new phone starts with: 'cyber' or 'glass'.
 export const DEFAULT_THEME = 'glass';

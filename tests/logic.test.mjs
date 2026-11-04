@@ -189,9 +189,10 @@ test('isDone and allDone for every game', () => {
   assert.ok(L.allDone('hg', { a: { out: true }, b: { ok: true } }, ['a', 'b']));
 });
 
-test('two truths: every right vote scores 200', () => {
-  const r = L.scoreVote({ a: { a: 2, at: 5 }, b: { a: 2, at: 1 }, c: { a: 0, at: 0 } }, 2);
-  assert.deepEqual(r.pts, { a: 200, b: 200 });
+test('two truths: first right answer gets the bonus (scored like trivia)', () => {
+  const r = L.scoreTrivia({ a: { a: 2, at: 5 }, b: { a: 2, at: 1 }, c: { a: 0, at: 0 } }, 2);
+  assert.deepEqual(r.pts, { b: 200, a: 100 });
+  assert.equal(r.first, 'b');
 });
 
 test('bots answer within range for every game', () => {
