@@ -375,6 +375,38 @@ html:not(.noir) .only-noir, html:not(.cyber) .only-cyber, html:not(.glass) .only
   .noir .card, .glass .card { padding: var(--space-3) var(--space-5); }
 }
 
+/* iPhone Home Screen app: iOS draws a blur band over the top of the screen
+   (measured on iPhone 12, Nov 2026: 88pt tall, i.e. 41pt below the 47pt status-bar inset).
+   Content starts 3pt below the band, and the bottom gets the matching extra space so the
+   top and bottom gaps are equal (both 91pt on iPhone 12). CSS only, no JavaScript. */
+@media (display-mode: standalone) {
+  @supports (-webkit-touch-callout: none) {
+    .app { padding-top: calc(env(safe-area-inset-top, 0px) + 36px); padding-bottom: calc(max(10px, env(safe-area-inset-bottom, 0px)) + 28px); }
+    @supports (height: 100lvh) {
+      .app { padding-bottom: calc(max(10px, calc(env(safe-area-inset-bottom, 0px) - clamp(0px, 100lvh - 100dvh, 60px))) + 28px); }
+    }
+    .update { margin-top: calc(env(safe-area-inset-top, 0px) + 36px); }
+    .sheet-wrap { padding-top: calc(env(safe-area-inset-top, 0px) + 36px); }
+    .noir .sheet-wrap { padding-bottom: 28px; }
+  }
+}
+/* The extra spacing leaves less room, so iPhones up to 880pt tall use the compact home layout too. */
+@media (display-mode: standalone) and (max-height: 880px) {
+  @supports (-webkit-touch-callout: none) {
+  .tile, .noir .tile, .glass .tile { height: 40px; font-size: 18px; }
+  .glass .arch { height: 56px; }
+  .glass .rose { width: 44px; height: 44px; }
+  .glass .rose::after { inset: 12px; }
+  .noir .mono { width: 40px; height: 40px; font-size: 16px; }
+  .h1, .noir .h1 { font-size: 34px; }
+  .glass .h1 { font-size: 30px; }
+  .sub { margin-top: var(--space-2); font-size: 15px; }
+  .btn { min-height: 50px; }
+  .card { padding: var(--space-3) var(--space-4); }
+  .noir .card, .glass .card { padding: var(--space-3) var(--space-5); }
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
