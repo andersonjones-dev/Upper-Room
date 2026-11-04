@@ -4,10 +4,14 @@ export const GAMES = [
   { id: 'pc', n: '01', sym: 'Pc', name: 'Bible Pictionary', mode: 'Draw', c: 'sapphire' },
   { id: 'vs', n: '02', sym: 'Vs', name: 'Verse Scramble', mode: 'Race', c: 'ruby', ready: true,
     how: 'A verse is cut into pieces. Tap them back into order on your phone. Fastest correct order wins.' },
-  { id: 'bk', n: '03', sym: 'Bk', name: 'Books Sort', mode: 'Race', c: 'amber' },
-  { id: 'tt', n: '04', sym: '2T', name: 'Two Truths & a Lie', mode: 'Vote', c: 'amethyst' },
-  { id: 'fv', n: '05', sym: 'Fv', name: 'Finish the Verse', mode: 'Teams', c: 'emerald' },
-  { id: 'tl', n: '06', sym: 'Tl', name: 'Bible Timeline', mode: 'Turns', c: 'teal' },
+  { id: 'bk', n: '03', sym: 'Bk', name: 'Books Sort', mode: 'Race', c: 'amber', ready: true,
+    how: 'Six books of the Bible, jumbled. Drag them, or tap two to swap, into Bible order. A wrong check costs 3 seconds.' },
+  { id: 'tt', n: '04', sym: '2T', name: 'Two Truths & a Lie', mode: 'Vote', c: 'amethyst', ready: true,
+    how: 'Three statements about a Bible person. Two are true. Vote for the lie on your phone; you can change your vote until the reveal.' },
+  { id: 'fv', n: '05', sym: 'Fv', name: 'Finish the Verse', mode: 'Teams', c: 'emerald', ready: true, teams: true,
+    how: 'The start of a verse is shown. Pick the right ending on your phone. Every right answer scores for your team; first right gets a bonus.' },
+  { id: 'tl', n: '06', sym: 'Tl', name: 'Bible Timeline', mode: 'Place', c: 'teal', ready: true,
+    how: 'Four events are shown in Bible order. Tap the gap where the new event belongs. First right answer gets a bonus.' },
   { id: 'hu', n: '07', sym: 'Hu', name: 'Heads Up', mode: 'Teams', c: 'amber' },
   { id: 'wd', n: '08', sym: 'Wd', name: 'Bible Wordle', mode: 'Daily', c: 'emerald' },
   { id: 'em', n: '09', sym: 'Em', name: 'Emoji Bible', mode: 'Buzz', c: 'ruby', ready: true,
@@ -15,14 +19,20 @@ export const GAMES = [
   { id: 'ex', n: '10', sym: 'Ex', name: 'Exodus Escape', mode: 'Co-op', c: 'sapphire' },
   { id: 'tr', n: '11', sym: '12', name: 'Twelve Tribes', mode: 'Teams', c: 'amethyst', ready: true, teams: true,
     how: 'Two teams. The first right answer to each question claims land on the map for their team.' },
-  { id: 'hg', n: '12', sym: 'Hg', name: 'Bible Hangman', mode: 'Turns', c: 'teal' }
+  { id: 'hg', n: '12', sym: 'Hg', name: 'Bible Hangman', mode: 'Race', c: 'teal', ready: true,
+    how: 'Everyone solves the same hidden word on their own phone, one letter at a time. Six wrong letters and you are out. Fastest solve wins.' }
 ];
 export const gameById = (id) => GAMES.find((g) => g.id === id) || GAMES[1];
 
 export const SETTINGS = {
   vs: { rounds: [3, 5, 8], secs: [30, 45, 60], def: { rounds: 5, secs: 45 } },
   tr: { rounds: [6, 12], secs: [15, 20, 30], def: { rounds: 12, secs: 20 } },
-  em: { rounds: [5, 8, 12], secs: [30, 45, 60], def: { rounds: 8, secs: 45 } }
+  em: { rounds: [5, 8, 12], secs: [30, 45, 60], def: { rounds: 8, secs: 45 } },
+  fv: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } },
+  hg: { rounds: [3, 5, 8], secs: [45, 60, 90], def: { rounds: 5, secs: 60 } },
+  tt: { rounds: [4, 6, 8], secs: [20, 30, 45], def: { rounds: 6, secs: 30 } },
+  bk: { rounds: [3, 5, 8], secs: [30, 45, 60], def: { rounds: 5, secs: 45 } },
+  tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
@@ -30,6 +40,7 @@ export const TEAMS = { ruby: 'Team Ruby', sapphire: 'Team Sapphire' };
 export const INTRO_MS = 4000;
 export const REVEAL_MS = 6000;
 export const WRONG_PENALTY_MS = 3000;
+export const VOTE_GRACE_MS = 3000;
 
 const ROMAN_TABLE = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']];
 export function roman(n) {
@@ -123,6 +134,14 @@ export function scoreTrivia(ans, correct) {
   return { pts, order, first: order[0] || null };
 }
 
+/** Two Truths & a Lie: 200 for every player who spots the lie. */
+export function scoreVote(ans, correct) {
+  const ok = ranked(Object.entries(ans || {}).filter(([, a]) => a && a.a === correct), (a) => a.at || 0);
+  const pts = {}, order = [];
+  ok.forEach(([u]) => { pts[u] = 200; order.push(u); });
+  return { pts, order, first: order[0] || null };
+}
+
 /** Which tribes question i claims when a game has n questions (12 → one each, 6 → two each). */
 export function tribesFor(i, n) {
   const k = Math.max(1, Math.floor(12 / Math.max(1, n)));
@@ -161,7 +180,9 @@ export function allDone(game, ans, uids) {
   return uids.every((u) => {
     const a = ans && ans[u];
     if (!a) return false;
-    return game === 'tr' ? typeof a.a === 'number' : !!a.ok;
+    if (['tr', 'fv', 'tl', 'tt'].includes(game)) return typeof a.a === 'number';
+    if (game === 'hg') return !!(a.ok || a.out);
+    return !!a.ok;
   });
 }
 
@@ -193,15 +214,17 @@ export function seeded(seed) {
 }
 
 /** What one bot does this round: when it answers, and whether it gets it right. */
-export function botPlan(game, roundKey, uid, secs, correct) {
+export function botPlan(game, roundKey, uid, secs, correct = 0) {
   const r = seeded(roundKey + ':' + uid);
   const span = secs * 1000;
   if (game === 'vs') return { ok: r() < 0.75, at: Math.round((0.25 + 0.55 * r()) * span) };
-  if (game === 'tr') {
-    const ok = r() < 0.65;
+  if (['tr', 'fv', 'tl', 'tt'].includes(game)) {
+    const n = game === 'tl' ? 5 : game === 'tt' ? 3 : 4;
+    const ok = r() < (game === 'tt' ? 0.55 : 0.65);
     const at = Math.round((0.15 + 0.55 * r()) * span);
-    return { ok, at, a: ok ? correct : (correct + 1 + Math.floor(r() * 3)) % 4 };
+    return { ok, at, a: ok ? correct : (correct + 1 + Math.floor(r() * (n - 1))) % n };
   }
+  if (game === 'hg') return { ok: r() < 0.6, at: Math.round((0.3 + 0.55 * r()) * span), wrong: Math.floor(r() * 4) };
   return { ok: r() < 0.7, at: Math.round((0.2 + 0.6 * r()) * span) };
 }
 

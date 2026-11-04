@@ -10,6 +10,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const content = await import(path.resolve(__dirname, '../js/content.js'));
   const logic = await import(path.resolve(__dirname, '../js/logic.js'));
+  const games = await import(path.resolve(__dirname, '../js/games.js'));
   const browser = await chromium.launch();
   const ctx = await browser.newContext({
     viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
@@ -93,7 +94,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   for (let q = 0; q < 6; q++) {
     await b.waitForSelector('[data-act="answer"]:not([disabled])', { timeout: 12000 });
     const rd = await b.evaluate(() => __ur.room.round);
-    const right = content.TRIVIA[rd.seq[rd.i]].a;
+    const right = games.correctOption('tr', rd.seq[rd.i], rd.data);
     await b.click(`[data-act="answer"][data-i="${right}"]`);
     await sleep(60);
     await c.click(`[data-act="answer"][data-i="${(right + 1) % 4}"]`);

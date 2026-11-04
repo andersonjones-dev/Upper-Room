@@ -122,3 +122,83 @@ test('bots: stable plans, sensible timings and accuracy', () => {
   for (const g of ['vs', 'em']) for (let i = 0; i < 100; i++) { const p = L.botPlan(g, 'r' + i, 'b', 45); assert.ok(p.at < 45000); }
   assert.equal(L.nextBotName({ x: { name: 'Ruth' } }), 'Boaz');
 });
+
+/* ----- 1.2 games ----- */
+import * as G from '../js/games.js';
+import { HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS } from '../js/content.js';
+
+test('content was quadrupled and new games have enough content', () => {
+  assert.ok(VERSES.length >= 64, 'verses ' + VERSES.length);
+  assert.ok(TRIVIA.length >= 128, 'trivia ' + TRIVIA.length);
+  assert.ok(EMOJI.length >= 96, 'emoji ' + EMOJI.length);
+  assert.equal(BOOKS.length, 66);
+  assert.ok(HANGMAN.length >= 100 && TWO_TRUTHS.length >= 40 && TIMELINE.length >= 50);
+  for (const g of ['fv', 'hg', 'tt', 'bk', 'tl']) assert.ok(Math.max(...L.SETTINGS[g].rounds) <= G.contentLength(g), g);
+  HANGMAN.forEach(([w]) => assert.match(w, /^[A-Z ]+$/));
+});
+
+test('choice games: the right option is where the screen shows it', () => {
+  for (let k = 0; k < 300; k++) {
+    const item = k % TRIVIA.length;
+    const d = G.roundData('tr', item);
+    assert.equal(G.options('tr', item, d)[G.correctOption('tr', item, d)], TRIVIA[item].o[TRIVIA[item].a]);
+    const t = k % TWO_TRUTHS.length, dt = G.roundData('tt', t);
+    assert.equal(G.options('tt', t, dt)[G.correctOption('tt', t, dt)], TWO_TRUTHS[t].lie[0]);
+    const v = k % VERSES.length, dv = G.roundData('fv', v);
+    assert.equal(new Set(dv.opt).size, 4);
+    assert.equal(G.options('fv', v, dv)[G.correctOption('fv', v, dv)], G.verseHalves(VERSES[v])[1]);
+    const e = k % TIMELINE.length, de = G.roundData('tl', e);
+    assert.equal(de.anchors.length, 4);
+    assert.ok(!de.anchors.includes(e));
+    const gap = G.correctOption('tl', e, de);
+    const line = [...de.anchors.slice(0, gap), e, ...de.anchors.slice(gap)];
+    assert.deepEqual(line, [...line].sort((a, b) => a - b));
+  }
+});
+
+test('finish the verse: start + ending is the whole verse', () => {
+  VERSES.forEach((v) => { const [a, b] = G.verseHalves(v); assert.ok(a && b); assert.equal(a + ' ' + b, v.parts.join(' ')); });
+});
+
+test('books sort: arrangement check', () => {
+  for (let k = 0; k < 100; k++) {
+    const d = G.roundData('bk', 0);
+    assert.equal(d.set.length, 6);
+    assert.deepEqual(d.set, [...d.set].sort((a, b) => a - b));
+    assert.ok(G.booksInPlace(d, [0, 1, 2, 3, 4, 5]) < 6, 'starts jumbled');
+    const solved = [0, 1, 2, 3, 4, 5].sort((a, b) => d.order[a] - d.order[b]);
+    assert.equal(G.booksInPlace(d, solved), 6);
+  }
+});
+
+test('hangman rules', () => {
+  const w = 'RED SEA';
+  assert.deepEqual(G.hangMask(w, 'E'), ['_', 'E', '_', ' ', '_', 'E', '_']);
+  assert.equal(G.hangWrong(w, 'EXZ'), 2);
+  assert.ok(!G.hangSolved(w, 'RED'));
+  assert.ok(G.hangSolved(w, 'REDSA'));
+  assert.equal(G.hangLetters(w), 5);
+  assert.equal(G.hangFound(w, 'RQE'), 2);
+});
+
+test('isDone and allDone for every game', () => {
+  assert.ok(G.isDone('fv', { a: 0 })); assert.ok(!G.isDone('fv', {}));
+  assert.ok(G.isDone('hg', { out: true })); assert.ok(G.isDone('hg', { ok: true })); assert.ok(!G.isDone('hg', { g: 'A' }));
+  assert.ok(G.isDone('bk', { ok: true })); assert.ok(!G.isDone('bk', { ok: false, checks: 2 }));
+  for (const g of ['tr', 'fv', 'tl', 'tt']) assert.ok(L.allDone(g, { a: { a: 1 } }, ['a']));
+  assert.ok(L.allDone('hg', { a: { out: true }, b: { ok: true } }, ['a', 'b']));
+});
+
+test('two truths: every right vote scores 200', () => {
+  const r = L.scoreVote({ a: { a: 2, at: 5 }, b: { a: 2, at: 1 }, c: { a: 0, at: 0 } }, 2);
+  assert.deepEqual(r.pts, { a: 200, b: 200 });
+});
+
+test('bots answer within range for every game', () => {
+  for (const g of ['tr', 'fv', 'tl', 'tt']) for (let i = 0; i < 100; i++) {
+    const n = g === 'tl' ? 5 : g === 'tt' ? 3 : 4, c = i % n;
+    const p = L.botPlan(g, 'k' + i, 'b', 20, c);
+    assert.ok(p.a >= 0 && p.a < n, g);
+    assert.equal(p.ok, p.a === c);
+  }
+});

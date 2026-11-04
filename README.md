@@ -2,7 +2,9 @@
 
 Bible party games where everyone plays on their own phone. One phone hosts and becomes "the table" (timer, scores, the map); everyone else joins with a four-letter code or by scanning a QR code. No accounts. Works on iPhone and Android in the browser, and can be added to the Home Screen.
 
-**Version 1.1.0 games:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible. The other nine games show as "Soon" in the lobby.
+**Version 1.2.0 games (8 of 12):** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline. Pictionary, Heads Up, Bible Wordle and Exodus Escape show as "Soon" in the lobby.
+
+**Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
 
 **Themes:** Luxury Noir, Cyberpunk Glitch, Stained Glass, each in light and dark. The host's theme shows on every phone in the room.
 
@@ -49,7 +51,11 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `css/app.css` | How every part looks, per theme. |
 | `js/app.js` | Screens, rooms, and the host's game control. |
 | `js/logic.js` | Scoring and rules (tested). |
-| `js/content.js` | Verses, trivia questions and emoji puzzles. Add more here. |
+| `js/content.js` | Hangman words, Two Truths sets, timeline events, the 66 books, the tribes. |
+| `js/verses.js` | The 64 KJV verses (exact text, split into pieces). |
+| `js/trivia.js` | Trivia questions with references. |
+| `js/emoji.js` | Emoji puzzles and the answers each one accepts. |
+| `js/games.js` | Round set-up and right answers for each game (tested). |
 | `js/config.js` | Firebase settings and the default theme. |
 | `js/net-firebase.js` | Talks to Firebase. |
 | `js/net-local.js` | Test-only stand-in for Firebase (`?net=local`). |
@@ -68,5 +74,6 @@ Players type a first name and pick a colour; nothing else is collected. Rooms ar
 ## Testing (for Claude)
 ```
 node --test tests/logic.test.mjs
-node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # needs a local server and Playwright
+node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots        # first three games
+node tests/e2e-games.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # the five 1.2 games
 ```
