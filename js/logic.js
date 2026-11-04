@@ -175,3 +175,37 @@ export const ordinal = (n) => {
   const s = ['th', 'st', 'nd', 'rd'], v = n % 100;
   return n + (s[(v - 20) % 10] || s[v] || s[0]);
 };
+
+/* ----- Practice bots (played by the host's phone) ----- */
+export const BOT_NAMES = ['Ruth', 'Boaz', 'Silas', 'Lydia', 'Gideon', 'Naomi', 'Titus', 'Hannah', 'Amos', 'Levi', 'Dinah', 'Asher', 'Tamar', 'Seth'];
+export const MAX_PLAYERS = 20;
+
+/** Small seeded random generator, so a bot makes the same choice if the host's app reloads mid-round. */
+export function seeded(seed) {
+  let h = 2166136261;
+  for (let i = 0; i < seed.length; i++) h = Math.imul(h ^ seed.charCodeAt(i), 16777619);
+  return () => {
+    h = Math.imul(h ^ (h >>> 15), 2246822507);
+    h = Math.imul(h ^ (h >>> 13), 3266489909);
+    h ^= h >>> 16;
+    return (h >>> 0) / 4294967296;
+  };
+}
+
+/** What one bot does this round: when it answers, and whether it gets it right. */
+export function botPlan(game, roundKey, uid, secs, correct) {
+  const r = seeded(roundKey + ':' + uid);
+  const span = secs * 1000;
+  if (game === 'vs') return { ok: r() < 0.75, at: Math.round((0.25 + 0.55 * r()) * span) };
+  if (game === 'tr') {
+    const ok = r() < 0.65;
+    const at = Math.round((0.15 + 0.55 * r()) * span);
+    return { ok, at, a: ok ? correct : (correct + 1 + Math.floor(r() * 3)) % 4 };
+  }
+  return { ok: r() < 0.7, at: Math.round((0.2 + 0.6 * r()) * span) };
+}
+
+export function nextBotName(players) {
+  const used = new Set(Object.values(players || {}).map((p) => p && p.name));
+  return BOT_NAMES.find((n) => !used.has(n)) || 'Bot ' + (Object.keys(players || {}).length + 1);
+}

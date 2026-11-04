@@ -32,7 +32,7 @@ const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } ca
 
 /* =================== Theme =================== */
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
-const BG = { noir: ['#FFFFFF', '#000000'], cyber: ['#F5E50A', '#0A0A0F'], glass: ['#F4EFE6', '#1B1530'] };
+const BG = { noir: ['#FFFFFF', '#000000'], cyber: ['#EEEDE8', '#0A0A0F'], glass: ['#F4EFE6', '#1B1530'] };
 const FONTS = {
   noir: 'family=Bodoni+Moda:ital,wght@0,400;0,700;1,400&family=Josefin+Sans:wght@400;600;700',
   cyber: 'family=Chakra+Petch:wght@400;600;700',
@@ -199,14 +199,16 @@ function hostLobby() {
   const r = S.room, meta = r.meta, list = playerList();
   const game = L.gameById(meta.game || 'vs'), set = settingsFor(game.id), opts = L.SETTINGS[game.id];
   const roster = list.length
-    ? `<div class="roster">${list.map((p) => `<div class="pl">${avatar(p)}<span class="pl-n">${esc(p.name)}</span><span class="pl-s">${p.online === false ? 'Away' : p.ready ? 'Ready' : ''}</span></div>`).join('')}</div>`
+    ? `<div class="roster">${list.map((p) => `<div class="pl">${avatar(p)}<span class="pl-n">${esc(p.name)}</span><span class="pl-s">${p.bot ? 'Bot' : p.online === false ? 'Away' : p.ready ? 'Ready' : ''}</span></div>`).join('')}</div>`
     : `<p class="small muted" style="margin:0">Waiting for players. Share the code or let them scan the QR.</p>`;
+  const nBots = list.filter((p) => p.bot).length;
+  const botRow = `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s btn-sm" data-act="addBot" ${list.length >= L.MAX_PLAYERS ? 'disabled' : ''}>Add practice bot</button>${nBots ? `<button class="btn btn-s btn-sm" data-act="removeBots">Remove ${nBots === 1 ? 'bot' : 'bots'}</button>` : ''}</div>`;
   const tiles = L.GAMES.map((g) => g.ready
     ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span><span>${g.mode}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(g.name)}</span></button>`
     : `<button class="gtile jf c-${g.c}" disabled aria-label="${esc(g.name)}, coming soon"><span class="gn"><span>${g.n}</span><span>Soon</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(g.name)}</span></button>`).join('');
   const seg = (k, vals, unit) => `<div class="seg" role="group" aria-label="${k}">${vals.map((v) => `<button class="chip ${set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${set[k] === v}">${v}${unit}</button>`).join('')}</div>`;
   const secs = [
-    ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">Room code</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', 'Share invite')}${iconBtn('qr', 'qr', 'Show QR code')}${iconBtn('menu', 'menu', 'Settings')}</div></div>${roster}</div>`],
+    ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">Room code</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', 'Share invite')}${iconBtn('qr', 'qr', 'Show QR code')}${iconBtn('menu', 'menu', 'Settings')}</div></div>${roster}${botRow}</div>`],
     ['glbl', `<div class="row between"><h2 class="title sm">Pick a game</h2><span class="small muted">${list.length} ${list.length === 1 ? 'player' : 'players'}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
     ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(game.name)}</span><span class="small">${esc(game.how)}</span><span class="lbl">${game.id === 'tr' ? 'Questions' : 'Rounds'}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">Seconds each</span>${seg('secs', opts.secs, 's')}</div>`]
@@ -617,6 +619,34 @@ function hostTick() {
     const ans = ((r.answers || {})[rd.i]) || {};
     if (now >= rd.endsAt || L.allDone(rd.game, ans, activeUids())) hostStep(hostReveal);
   } else if (rd.phase === 'reveal' && now >= rd.endsAt) hostStep(hostAdvance);
+  if (rd.phase === 'play') botsPlay(rd, now);
+}
+
+/* ----- Practice bots: the host's phone answers for them ----- */
+const botSent = new Set();
+function botsPlay(rd, now) {
+  const ans = ((S.room.answers || {})[rd.i]) || {};
+  const key = `${rd.game}:${rd.i}:${rd.startedAt}`;
+  const elapsed = now - rd.startedAt;
+  playerList().filter((p) => p.bot).forEach((p) => {
+    const mine = ans[p.uid] || {};
+    if (mine.ok || typeof mine.a === 'number') return;
+    const correct = rd.game === 'tr' ? TRIVIA[rd.seq[rd.i]].a : 0;
+    const plan = L.botPlan(rd.game, key, p.uid, rd.secs, correct);
+    const send = (stage, val) => {
+      const id = key + p.uid + stage;
+      if (botSent.has(id)) return;
+      botSent.add(id);
+      write(S.net.set(`${roomPath()}/answers/${rd.i}/${p.uid}`, val));
+    };
+    if (rd.game === 'vs') {
+      const n = VERSES[rd.seq[rd.i]].parts.length;
+      if (elapsed >= plan.at / 2) send('half', { placed: Math.max(1, Math.floor(n / 2)), ok: false });
+      if (plan.ok && elapsed >= plan.at) send('done', { placed: n, ok: true, ms: plan.at });
+    } else if (rd.game === 'tr') {
+      if (elapsed >= plan.at) send('ans', { a: plan.a, at: S.net.TS });
+    } else if (plan.ok && elapsed >= plan.at) send('ok', { ok: true, at: S.net.TS, tries: 1 });
+  });
 }
 setInterval(hostTick, 300);
 
@@ -687,6 +717,19 @@ const A = {
   shuffleTeams: () => {
     const t = L.shuffleTeams(playerList().map((p) => p.uid)), upd = {};
     Object.entries(t).forEach(([u, team]) => { upd[`players/${u}/team`] = team; });
+    write(S.net.update(roomPath(), upd));
+  },
+  addBot: () => {
+    const ps = players();
+    if (playerList().length >= L.MAX_PLAYERS) return;
+    const uid = 'bot' + Math.random().toString(36).slice(2, 8);
+    const used = playerList().map((p) => p.color);
+    const color = L.COLORS.find((c) => !used.includes(c)) || L.COLORS[playerList().length % L.COLORS.length];
+    write(S.net.set(`${roomPath()}/players/${uid}`, { name: L.nextBotName(ps), color, team: L.smallerTeam(ps), score: 0, correct: 0, ready: true, online: true, bot: true, joined: Date.now() }));
+  },
+  removeBots: () => {
+    const upd = {};
+    playerList().filter((p) => p.bot).forEach((p) => { upd[`players/${p.uid}`] = null; });
     write(S.net.update(roomPath(), upd));
   },
   switchTeam: () => { const me = players()[S.net.uid]; write(S.net.update(`${roomPath()}/players/${S.net.uid}`, { team: me.team === 'sapphire' ? 'ruby' : 'sapphire' })); },

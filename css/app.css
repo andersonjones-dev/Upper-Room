@@ -249,7 +249,7 @@ html:not(.noir) .only-noir, html:not(.cyber) .only-cyber, html:not(.glass) .only
 .cyber .brand, .cyber .title, .cyber .card-title, .cyber .lbl, .cyber .btn, .cyber .team-n, .cyber .chip { text-transform: uppercase; }
 .cyber .brand { letter-spacing: .08em; }
 .cyber .iconbtn { border: 2px solid var(--color-text); }
-.cyber .hazard { height: 10px; flex-shrink: 0; background: repeating-linear-gradient(-45deg, var(--color-primary) 0 8px, transparent 8px 16px); }
+.cyber .hazard { height: 10px; flex-shrink: 0; background: repeating-linear-gradient(-45deg, var(--color-primary) 0 8px, var(--color-on-primary) 8px 16px); }
 .cyber .syscode { writing-mode: vertical-rl; font-size: 11px; font-weight: 700; letter-spacing: .24em; color: var(--color-text-muted); text-transform: uppercase; }
 .cyber .grid4, .cyber .grid3 { gap: 6px; }
 .cyber .jf { background: var(--color-surface); border: 0; border-left: 4px solid var(--pc); color: var(--color-text); }

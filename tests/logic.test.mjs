@@ -107,3 +107,18 @@ test('clock formatting', () => {
   assert.equal(L.secondsLeft(10500, 10000), 1);
   assert.equal(L.ordinal(1), '1st'); assert.equal(L.ordinal(2), '2nd'); assert.equal(L.ordinal(11), '11th'); assert.equal(L.ordinal(23), '23rd');
 });
+
+test('bots: stable plans, sensible timings and accuracy', () => {
+  const a = L.botPlan('tr', 'tr:3:100', 'bot1', 20, 2), b = L.botPlan('tr', 'tr:3:100', 'bot1', 20, 2);
+  assert.deepEqual(a, b);
+  let right = 0;
+  for (let i = 0; i < 400; i++) {
+    const p = L.botPlan('tr', 'k' + i, 'bot', 20, 1);
+    assert.ok(p.at > 0 && p.at < 20000);
+    assert.ok(p.a >= 0 && p.a < 4);
+    if (p.ok) { right++; assert.equal(p.a, 1); } else assert.notEqual(p.a, 1);
+  }
+  assert.ok(right > 200 && right < 320, 'about 65% right: ' + right);
+  for (const g of ['vs', 'em']) for (let i = 0; i < 100; i++) { const p = L.botPlan(g, 'r' + i, 'b', 45); assert.ok(p.at < 45000); }
+  assert.equal(L.nextBotName({ x: { name: 'Ruth' } }), 'Boaz');
+});

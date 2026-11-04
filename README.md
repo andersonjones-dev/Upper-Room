@@ -2,7 +2,7 @@
 
 Bible party games where everyone plays on their own phone. One phone hosts and becomes "the table" (timer, scores, the map); everyone else joins with a four-letter code or by scanning a QR code. No accounts. Works on iPhone and Android in the browser, and can be added to the Home Screen.
 
-**Version 1.0.0 games:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible. The other nine games show as "Soon" in the lobby.
+**Version 1.1.0 games:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible. The other nine games show as "Soon" in the lobby.
 
 **Themes:** Luxury Noir, Cyberpunk Glitch, Stained Glass, each in light and dark. The host's theme shows on every phone in the room.
 
@@ -36,6 +36,8 @@ Open the link in Safari → Share → **Add to Home Screen**.
 2. Players tap **Join with a code** (or scan the QR / tap the shared link), type their name and pick a colour.
 3. The host taps **Start**. Rounds run on their own: intro, play, reveal, next. The host can also **Reveal now**, **Next now** or **End game**.
 4. At the end: podium on the table, each player's place on their own phone. **Play again** or **Another game**.
+
+**Testing on your own:** in the lobby, tap **Add practice bot** (up to 20 players in total). Bots are run by the host's phone: they answer at random times and get roughly two out of three right. **Remove bots** takes them all out.
 
 If a phone drops out or the app is closed, opening it again rejoins the same room automatically.
 
