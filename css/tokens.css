@@ -1,0 +1,67 @@
+/* Upper Room theme tokens.
+   The <html> element carries the theme class (noir, cyber or glass) and `dark` when dark mode is on.
+   Dark mode follows the phone's setting (prefers-color-scheme) unless the player picks Light or Dark. */
+
+/* ---------- Luxury Noir ---------- */
+.noir {
+  --color-bg: #FFFFFF; --color-surface: #F7F5F1; --color-text: #0A0A0A; --color-text-muted: #68645D;
+  --color-border: #E3DED5; --color-primary: #86672F; --color-secondary: #0A0A0A; --color-tertiary: #F2EEE6;
+  --color-on-primary: #FFFFFF; --color-danger: #B3261E;
+  --font-display: 'Bodoni Moda', Georgia, 'Times New Roman', serif;
+  --font-body: 'Josefin Sans', system-ui, -apple-system, sans-serif;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 22px; --space-6: 28px; --space-7: 30px; --space-8: 44px;
+  --radius-sm: 0px; --radius-md: 0px; --radius-lg: 0px; --radius-pill: 999px;
+  --shadow-1: none; --shadow-2: none; --icon-stroke: 1.1px; --icon-linecap: round;
+  --fill-strong: var(--color-primary); --on-fill-strong: var(--color-on-primary);
+  color-scheme: light;
+}
+.noir.dark {
+  --color-bg: #000000; --color-surface: #0D0D0D; --color-text: #F4EFE6; --color-text-muted: #8E8980;
+  --color-border: #2A2723; --color-primary: #C9A96E; --color-secondary: #F4EFE6; --color-tertiary: #1A1814;
+  --color-on-primary: #000000; --color-danger: #E07A5F;
+  color-scheme: dark;
+}
+
+/* ---------- Cyberpunk Glitch ---------- */
+.cyber {
+  --color-bg: #F5E50A; --color-surface: #FFF9A8; --color-text: #0A0A0F; --color-text-muted: #3C3C1E;
+  --color-border: #0A0A0F; --color-primary: #0A0A0F; --color-secondary: #C4004A; --color-tertiary: #006E7A;
+  --color-on-primary: #F5E50A; --color-danger: #C4004A;
+  --font-display: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+  --font-body: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+  --space-1: 4px; --space-2: 6px; --space-3: 10px; --space-4: 12px; --space-5: 16px; --space-6: 18px; --space-7: 20px; --space-8: 30px;
+  --radius-sm: 0px; --radius-md: 0px; --radius-lg: 0px; --radius-pill: 0px;
+  --shadow-1: none; --shadow-2: none; --icon-stroke: 1.8px; --icon-linecap: square;
+  --fill-strong: var(--color-primary); --on-fill-strong: var(--color-on-primary);
+  color-scheme: light;
+}
+.cyber.dark {
+  --color-bg: #0A0A0F; --color-surface: #14141C; --color-text: #F2F2F7; --color-text-muted: #8A8AA0;
+  --color-border: #2A2A38; --color-primary: #FCEE0A; --color-secondary: #FF2A6D; --color-tertiary: #05D9E8;
+  --color-on-primary: #0A0A0F; --color-danger: #FF2A6D;
+  color-scheme: dark;
+}
+
+/* ---------- Stained Glass ---------- */
+.glass {
+  --color-bg: #F4EFE6; --color-surface: #FFFDF8; --color-text: #241C3F; --color-text-muted: #625A7C;
+  --color-border: #241C3F; --color-primary: #B07A12; --color-secondary: #2E5FBF; --color-tertiary: #A62C41;
+  --color-quaternary: #2B8A60; --color-on-primary: #FFFDF8; --color-danger: #B3261E;
+  --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
+  --font-body: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+  --space-1: 4px; --space-2: 8px; --space-3: 10px; --space-4: 14px; --space-5: 20px; --space-6: 22px; --space-7: 28px; --space-8: 36px;
+  --radius-sm: 4px; --radius-md: 16px; --radius-lg: 103px 103px 6px 6px; --radius-pill: 999px;
+  --shadow-1: 0 0 44px rgba(232, 176, 75, .35); --shadow-2: none; --icon-stroke: 2px; --icon-linecap: round;
+  /* Amber fills are darkened 18% in light mode so cream text on them passes 4.5:1. */
+  --fill-strong: color-mix(in srgb, var(--color-primary) 82%, #000000); --on-fill-strong: #FFFDF8;
+  --jewel-amt: 82%; --jewel-base: #000000; --jewel-ink-amt: 0%;
+  color-scheme: light;
+}
+.glass.dark {
+  --color-bg: #1B1530; --color-surface: #241C3F; --color-text: #F6F0E4; --color-text-muted: #B3AACB;
+  --color-border: #0B0816; --color-primary: #E8B04B; --color-secondary: #2E6FD8; --color-tertiary: #B8324A;
+  --color-quaternary: #2F9E6E; --color-on-primary: #1B1530; --color-danger: #FF6B6B;
+  --fill-strong: var(--color-primary); --on-fill-strong: var(--color-on-primary);
+  --jewel-amt: 45%; --jewel-base: var(--color-border); --jewel-ink-amt: 45%;
+  color-scheme: dark;
+}
