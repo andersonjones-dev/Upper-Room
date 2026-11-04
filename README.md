@@ -24,7 +24,7 @@ Bible party games where everyone plays on their own phone. One phone hosts and b
 ### 3. Turn on GitHub Pages
 1. On GitHub, open this repo → **Settings → Pages**.
 2. Under *Branch*, choose **main** and **/ (root)**, then **Save**.
-3. After a minute the app is live at **https://andersonjones-dev.github.io/upper-room/**
+3. After a minute the app is live at **https://andersonjones-dev.github.io/Upper-Room/**
 
 ### 4. Add it to your Home Screen
 Open the link in Safari → Share → **Add to Home Screen**.
