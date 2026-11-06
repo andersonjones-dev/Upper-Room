@@ -37,7 +37,7 @@ export const SETTINGS = {
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
 export const TEAMS = { ruby: 'Team Ruby', sapphire: 'Team Sapphire' };
-export const INTRO_MS = 4000;
+export const INTRO_MS = 10000;
 export const REVEAL_MS = 6000;
 export const WRONG_PENALTY_MS = 3000;
 export const VOTE_GRACE_MS = 3000;

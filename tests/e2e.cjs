@@ -54,7 +54,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await b.waitForSelector('text=Starting in');
   await b.screenshot({ path: SHOTS + '/03-player-intro.png' });
   for (let round = 0; round < 3; round++) {
-    await b.waitForSelector('[data-act="piece"]', { timeout: 10000 });
+    await b.waitForSelector('[data-act="piece"]', { timeout: 25000 });
     const rd = await b.evaluate(() => __ur.room.round);
     const parts = content.VERSES[rd.seq[rd.i]].parts;
     // Cara: wrong order first, then fix it
@@ -92,7 +92,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await host.screenshot({ path: SHOTS + '/10-host-lobby-tribes.png' });
   await host.click('[data-act="start"]');
   for (let q = 0; q < 6; q++) {
-    await b.waitForSelector('[data-act="answer"]:not([disabled])', { timeout: 12000 });
+    await b.waitForSelector('[data-act="answer"]:not([disabled])', { timeout: 25000 });
     const rd = await b.evaluate(() => __ur.room.round);
     const right = games.correctOption('tr', rd.seq[rd.i], rd.data);
     await b.click(`[data-act="answer"][data-i="${right}"]`);
@@ -115,7 +115,7 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   await host.click('[data-act="set"][data-k="rounds"][data-v="5"]');
   await host.click('[data-act="start"]');
   for (let r = 0; r < 5; r++) {
-    await b.waitForSelector('#guess', { timeout: 12000 });
+    await b.waitForSelector('#guess', { timeout: 25000 });
     const rd = await b.evaluate(() => __ur.room.round);
     const e = content.EMOJI[rd.seq[rd.i]];
     await c.fill('#guess', 'zzz not it');

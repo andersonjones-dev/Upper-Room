@@ -123,7 +123,7 @@ function paintChrome() {
     : (S.toast ? `<div class="update toast" role="status"><span>${esc(S.toast)}</span></div>` : '');
   if ($bar._h !== barHtml) { $bar.innerHTML = barHtml; $bar._h = barHtml; }
   // Sheets
-  const sh = S.sheet === 'menu' ? sheetMenu() : S.sheet === 'qr' ? sheetQr() : '';
+  const sh = S.sheet === 'menu' ? sheetMenu() : S.sheet === 'qr' ? sheetQr() : S.sheet === 'about' ? sheetAbout() : '';
   if ($overlay._h !== sh) {
     const opening = !$overlay._h && sh;
     $overlay.innerHTML = sh; $overlay._h = sh;
@@ -133,8 +133,15 @@ function paintChrome() {
 function tickTimers() {
   const now = S.net ? S.net.now() : Date.now();
   document.querySelectorAll('[data-ends]').forEach((el) => {
-    const t = L.fmtClock(L.secondsLeft(Number(el.dataset.ends), now));
+    const secs = L.secondsLeft(Number(el.dataset.ends), now);
+    const t = el.classList.contains('count') ? String(secs) : L.fmtClock(secs);
     if (el.textContent !== t) el.textContent = t;
+    const urgent = secs > 0 && secs <= 10;
+    el.classList.toggle('urgent', urgent);
+    if (urgent && el.dataset.beat !== String(secs)) {
+      el.dataset.beat = String(secs);
+      el.classList.remove('beat'); void el.offsetWidth; el.classList.add('beat');
+    }
   });
 }
 setInterval(tickTimers, 250);
@@ -155,7 +162,8 @@ function viewHome() {
         <div class="homegrid" aria-hidden="true"><div class="win"><div class="arch only-glass"><div class="rose"></div></div><div class="grid4">${tiles}</div></div><span class="syscode only-cyber">SYS//UR-12 · ROOM</span></div>`],
       ['hero', `<div class="hero"><h1 class="h1">Gather<br>the room.</h1><p class="sub">Everyone plays on their own phone. This one becomes the table.</p></div>`],
       ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? 'Connecting…' : 'Host a room'}</button><button class="btn btn-s" data-act="goJoin">Join with a code</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
-      ['card', `<div class="card row between"><div class="col"><span class="card-title">Ready to play</span><span class="det small muted">Verse Scramble · Twelve Tribes · Emoji Bible</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
+      ['about', `<button class="linkbtn" data-act="about">© 2026 Anderson Jones · About</button>`],
+      ['card', `<div class="card row between"><div class="col"><span class="card-title">8 games ready</span><span class="det small muted">4 more on the way</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
     ]
   };
 }
@@ -185,7 +193,14 @@ function viewRoom() {
   }
   const st = r.meta.status;
   let out;
-  if (S.role === 'host') out = st === 'playing' ? hostPlay() : st === 'results' ? hostResults() : hostLobby();
+  if (S.role === 'host') {
+    const rd = r.round, playing = st === 'playing' && r.meta.hostPlays && players()[S.net.uid] && rd;
+    if (playing && rd.phase === 'play') {
+      out = playerPlay();
+      out.secs = [['hostbar', `<div class="row between"><span class="pill">You're hosting and playing</span><button class="btn btn-s btn-sm" data-act="skip">Reveal now</button></div>`]].concat(out.secs);
+    } else if (playing && rd.phase === 'intro') out = { cls: '', secs: introSecs(rd, true).concat([hostControls(rd)]) };
+    else out = st === 'playing' ? hostPlay() : st === 'results' ? hostResults() : hostLobby();
+  }
   else {
     if (!players()[S.net.uid]) return { cls: 'center-v', secs: [['out', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">You're not in this room</h1><button class="btn btn-p" data-act="home">Back to start</button></div>`]] };
     out = st === 'playing' ? playerPlay() : st === 'results' ? playerResults() : playerWait();
@@ -220,6 +235,8 @@ function hostLobby() {
     };
     secs.push(['teams', `<div class="col" style="gap:10px"><div class="row between"><span class="lbl">Teams</span><button class="btn btn-s btn-sm" data-act="shuffleTeams" ${list.length < 2 ? 'disabled' : ''}>Shuffle teams</button></div><div class="grid2">${col('ruby')}${col('sapphire')}</div><p class="small muted" style="margin:0">Players can also switch team on their own phone.</p></div>`]);
   }
+  const hp = !!meta.hostPlays;
+  secs.push(['hostplay', `<div class="card col" style="gap:10px"><div class="row between"><div class="col"><span class="card-title">Play as well as host</span><span class="small muted">${hp ? 'Your phone shows your own answers during each round, and the table between rounds.' : 'Just host: this phone stays the table.'}</span></div><button class="switch ${hp ? 'on' : ''}" data-act="hostPlays" role="switch" aria-checked="${hp}" aria-label="Play as well as host"><span></span></button></div>${hp ? `<div class="row" style="gap:10px"><label class="lbl" for="hostName">Your name</label><input id="hostName" class="field" data-draft="name" maxlength="16" autocomplete="nickname" style="min-height:48px"></div>` : ''}</div>`]);
   const closeLbl = Date.now() - S.confirmClose < 4000 ? 'Tap again to close the room' : 'Close room';
   secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length ? '' : 'disabled'}>${list.length ? 'Start ' + esc(game.name) : 'Waiting for players'}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
   return { cls: '', secs };
@@ -234,7 +251,7 @@ function introSecs(rd, forPlayer) {
   }
   return [
     ['h', head(esc(g.name), forPlayer ? 'Get ready' : `${rd.n} ${['tr', 'fv', 'tt'].includes(g.id) ? 'questions' : 'rounds'} · ${rd.secs}s each`)],
-    ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">Starting in</span><span class="big" data-ends="${rd.endsAt}">${clockNow(rd.endsAt)}</span><span class="small">${esc(g.how)}</span></div>${extra}`]
+    ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">Starting in</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(g.how)}</span></div>${extra}`]
   ];
 }
 
@@ -299,7 +316,7 @@ function hostPlay() {
   const reveal = rd.phase === 'reveal';
   const secs = [['h', head(esc(g.name), `${roundWord(rd)} ${rd.i + 1} of ${rd.n}`, reveal ? null : rd.endsAt)]];
   const list = playerList();
-  const res = rd.res || { pts: {}, order: [] };
+  const res = { first: null, ...(rd.res || {}), pts: (rd.res && rd.res.pts) || {}, order: (rd.res && rd.res.order) || [] }; // the database drops empty lists
   const firstNote = (ok, title, body) => secs.push(['rn', ok ? note(true, title, body) : note(false, 'No one got it', body)]);
 
   if (rd.game === 'vs') {
@@ -369,7 +386,7 @@ function hostPlay() {
 
   if (rd.game === 'hg') {
     const [word, cat] = HANGMAN[item], total = G.hangLetters(word);
-    secs.push(['card', `<div class="card col" style="gap:10px;align-items:center;text-align:center"><span class="lbl">${esc(cat)} · ${word.replace(/ /g, '').length} letters</span>${hangSlots(word, '', reveal)}</div>`]);
+    secs.push(['card', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="cat-badge">${esc(cat)}</span><span class="small muted">${word.replace(/ /g, '').length} letters${word.includes(' ') ? ' · ' + word.split(' ').length + ' words' : ''}</span>${hangSlots(word, '', reveal)}</div>`]);
     const rows = list.map((p) => { const a = ans[p.uid] || {}; const gs = a.g || ''; const wrong = G.hangWrong(word, gs);
       return { p, done: !!a.ok, ms: a.ms || 0, pct: Math.round((G.hangFound(word, gs) / total) * 100), status: a.ok ? 'Solved · ' + L.fmtSecs(a.ms) : a.out ? 'Out' : `${G.MAX_WRONG - wrong} lives` }; })
       .sort((x, y) => (y.done ? 1e9 - y.ms : y.pct) - (x.done ? 1e9 - x.ms : x.pct));
@@ -471,7 +488,7 @@ function playerPlay() {
   const uid = S.net.uid, me = players()[uid] || {};
   const ans = ((S.room.answers || {})[rd.i]) || {}, mine = ans[uid] || {};
   const loc = ensureLocal(rd);
-  const res = rd.res || { pts: {}, order: [] };
+  const res = { first: null, ...(rd.res || {}), pts: (rd.res && rd.res.pts) || {}, order: (rd.res && rd.res.order) || [] }; // the database drops empty lists
   const myPts = res.pts[uid] || 0;
   const det = `${roundWord(rd)} ${rd.i + 1} of ${rd.n}`;
   const g = L.gameById(rd.game), item = itemOf(rd), data = rd.data || {};
@@ -554,8 +571,8 @@ function playerPlay() {
     const [word, cat] = HANGMAN[item];
     const gs = loc.guessed || mine.g || '';
     const wrong = G.hangWrong(word, gs), solved = !!mine.ok || G.hangSolved(word, gs), out = !solved && (mine.out || wrong >= G.MAX_WRONG);
-    secs.push(['h', head(esc(cat), `${esc(g.name)} · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
-    secs.push(['word', `<div class="card col" style="gap:12px;align-items:center">${hangSlots(word, gs, reveal || out, true)}${lives(Math.min(wrong, G.MAX_WRONG))}</div>`]);
+    secs.push(['h', head(esc(g.name), det, reveal ? null : rd.endsAt, 'tpill')]);
+    secs.push(['word', `<div class="card col" style="gap:12px;align-items:center"><span class="cat-badge">${esc(cat)}</span>${hangSlots(word, gs, reveal || out, true)}${lives(Math.min(wrong, G.MAX_WRONG))}</div>`]);
     if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${L.ordinal(res.order.indexOf(uid) + 1)}`, `Solved in ${L.fmtSecs(mine.ms || 0)}.`) : note(false, 'No points this round', `The answer was ${esc(word)}.`)]);
     else if (solved) secs.push(['n', note(true, `Solved · ${L.fmtSecs(mine.ms || loc.ms)}`, 'Watch the table.')]);
     else if (out) secs.push(['n', note(false, 'Out of lives', `It was ${esc(word)}.`)]);
@@ -638,7 +655,17 @@ function sheetMenu() {
     <div class="col" style="gap:10px"><span class="lbl">Theme</span>${chips('theme', S.prefs.theme, [['cyber', 'Cyberpunk'], ['glass', 'Stained Glass']])}${roomNote}</div>
     <div class="col" style="gap:10px"><span class="lbl">Light or dark</span>${chips('mode', S.prefs.mode, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])}</div>
     ${roomBtn}
-    <p class="small muted center" style="margin:0;text-align:center">Upper Room ${APP_VERSION} · © 2026 Anderson Jones<br>Scripture from the King James Version (public domain)</p>`);
+    <button class="linkbtn" data-act="about">© 2026 Anderson Jones · About</button>`);
+}
+function sheetAbout() {
+  return sheetWrap(`<h2 class="title md center" id="sheetTitle" tabindex="-1">Upper Room</h2>
+    <div class="col center" style="gap:8px;text-align:center">
+      <span class="small muted">Version ${APP_VERSION}</span>
+      <span>Designed by Anderson Jones</span>
+      <span class="small">© 2026 Anderson Jones. All rights reserved.</span>
+      <span class="small muted">Scripture quotations from the King James Version (public domain).</span>
+      <a class="linkbtn" href="mailto:andy.andersonjones@gmail.com?subject=Upper%20Room%20feedback">Send feedback: andy.andersonjones@gmail.com</a>
+    </div>`);
 }
 function joinUrl() { return location.origin + location.pathname + '?join=' + S.code; }
 function sheetQr() {
@@ -980,6 +1007,7 @@ const A = {
   closeSheet: () => { S.sheet = null; },
   closeSheetBg: (el, ev) => { if (ev.target === el) S.sheet = null; },
   qr: () => { S.sheet = 'qr'; },
+  about: () => { S.sheet = 'about'; },
   share: async () => {
     const url = joinUrl(), text = `Join my Upper Room game. Code: ${S.code}`;
     if (navigator.share) { try { await navigator.share({ title: 'Upper Room', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
@@ -1001,6 +1029,15 @@ const A = {
   shuffleTeams: () => {
     const t = L.shuffleTeams(playerList().map((p) => p.uid)), upd = {};
     Object.entries(t).forEach(([u, team]) => { upd[`players/${u}/team`] = team; });
+    write(S.net.update(roomPath(), upd));
+  },
+  hostPlays: () => {
+    const on = !(S.room.meta && S.room.meta.hostPlays), uid = S.net.uid, upd = { 'meta/hostPlays': on };
+    if (on) {
+      const name = String(S.drafts.name || S.profile.name || '').trim().slice(0, 16) || 'Host';
+      S.drafts.name = name;
+      upd[`players/${uid}`] = { name, color: S.profile.color || 'amber', team: L.smallerTeam(players()), score: 0, correct: 0, ready: true, online: true, isHost: true, joined: Date.now() };
+    } else upd[`players/${uid}`] = null;
     write(S.net.update(roomPath(), upd));
   },
   addBot: () => {
@@ -1060,6 +1097,12 @@ document.addEventListener('input', (ev) => {
   if (el.dataset.draft === 'code') { v = L.cleanCode(v); if (el.value !== v) el.value = v; }
   S.drafts[el.dataset.draft] = v;
   if (el.dataset.draft === 'guess' && S.local && S.local.guessWrong) { S.local.guessWrong = false; paint(); }
+});
+document.addEventListener('change', (ev) => {
+  if (ev.target.id !== 'hostName' || S.role !== 'host' || !S.room || !players()[S.net.uid]) return;
+  const name = String(ev.target.value || '').trim().slice(0, 16) || 'Host';
+  S.profile.name = name; save('ur.profile', S.profile);
+  write(S.net.update(`${roomPath()}/players/${S.net.uid}`, { name }));
 });
 document.addEventListener('submit', (ev) => {
   const f = ev.target.closest('form[data-form]');

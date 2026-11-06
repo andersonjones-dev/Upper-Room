@@ -30,7 +30,7 @@ const SHOTS = process.argv[3] || '/tmp/ur-shots';
   };
   const ben = await join('ben', 'Ben', 'sapphire'), cara = await join('cara', 'Cara', 'emerald');
   const round = (p) => p.evaluate(() => __ur.room.round);
-  const waitPlay = async (p, i) => p.waitForFunction((i) => __ur.room.round && __ur.room.round.phase === 'play' && __ur.room.round.i === i, i, { timeout: 15000 });
+  const waitPlay = async (p, i) => p.waitForFunction((i) => __ur.room.round && __ur.room.round.phase === 'play' && __ur.room.round.i === i, i, { timeout: 25000 });
   const waitReveal = () => host.waitForFunction(() => __ur.room.round.phase === 'reveal', null, { timeout: 45000 });
   const scores = () => host.evaluate(() => Object.fromEntries(Object.values(__ur.room.players).map((p) => [p.name, p.score])));
   const start = async (g, rounds, secs) => {
