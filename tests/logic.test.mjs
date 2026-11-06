@@ -203,3 +203,27 @@ test('bots answer within range for every game', () => {
     assert.equal(p.ok, p.a === c);
   }
 });
+
+test('Kannada content lines up with English', async () => {
+  const T = await import('../js/text.js');
+  const EN = T.content('en'), KN = T.content('kn');
+  for (const k of ['VERSES', 'TRIVIA', 'EMOJI', 'HANGMAN', 'TWO_TRUTHS', 'TIMELINE', 'BOOKS', 'TRIBES']) assert.equal(KN[k].length, EN[k].length, k);
+  KN.VERSES.forEach((v, i) => { assert.equal(v.parts.length, EN.VERSES[i].parts.length, 'verse ' + i); assert.equal(new Set(v.parts).size, v.parts.length, 'unique pieces ' + i); });
+  KN.TRIVIA.forEach((q, i) => { assert.equal(q.o.length, 4, 'trivia ' + i); assert.equal(new Set(q.o).size, 4, 'trivia options ' + i); });
+  assert.equal(T.refKn('Psalm 119:105'), 'ಕೀರ್ತನೆಗಳು 119:105');
+  assert.equal(T.refKn('1 Samuel 17:49'), '1 ಸಮುವೇಲನು 17:49');
+});
+
+test('Kannada hangman and emoji', async () => {
+  const T = await import('../js/text.js');
+  const KN = T.content('kn');
+  assert.deepEqual(G.hangTokens('ಅಬ್ರಹಾಮ'), [['ಅ', 'ಬ್ರ', 'ಹಾ', 'ಮ']]);
+  assert.equal(G.hangSolved('ಅಬ್ರಹಾಮ', 'ಮ|ಅ|ಬ್ರ|ಹಾ'), true);
+  assert.equal(G.hangWrong('ಅಬ್ರಹಾಮ', 'ಅ|ಕ'), 1);
+  KN.HANGMAN.forEach((_, i) => { const keys = G.hangKeys(i, KN); const word = new Set(G.hangTokens(KN.HANGMAN[i][0]).flat());
+    assert.equal(keys.length % 6, 0, 'full rows ' + i); assert.equal(new Set(keys).size, keys.length); for (const a of word) assert.ok(keys.includes(a), 'key for ' + a); });
+  assert.equal(L.emojiMatches('ನೋಹನ ನಾವೆ', KN.EMOJI[2].keys), true);
+  assert.equal(L.emojiMatches("Noah's ark", KN.EMOJI[2].keys), true);
+  assert.equal(L.emojiMatches('ದಾವೀದ', KN.EMOJI[2].keys), false);
+  KN.EMOJI.forEach((e, i) => assert.equal(L.emojiMatches(e.a, e.keys), true, 'own answer matches ' + i));
+});

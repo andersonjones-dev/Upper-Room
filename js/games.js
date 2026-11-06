@@ -1,6 +1,7 @@
 // Per-game rules that don't touch the screen or network. Tested with `node --test`.
 import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS } from './content.js';
-import { shuffle, scrambleOrder } from './logic.js';
+import { shuffle, scrambleOrder, seeded } from './logic.js';
+import { content } from './text.js';
 
 /** Games where everyone picks one option and the first right answer earns a bonus. */
 export const CHOICE = ['tr', 'fv', 'tl', 'tt'];
@@ -37,11 +38,11 @@ export function roundData(g, item, rand = Math.random) {
   return {};
 }
 
-/** The options shown, in screen order. */
-export function options(g, item, data) {
-  if (g === 'tr') return data.opt.map((i) => TRIVIA[item].o[i]);
-  if (g === 'tt') { const x = TWO_TRUTHS[item]; const all = [x.t[0][0], x.t[1][0], x.lie[0]]; return data.opt.map((i) => all[i]); }
-  if (g === 'fv') return data.opt.map((vi) => verseHalves(VERSES[vi])[1]);
+/** The options shown, in screen order, in this phone's language (or the content set given). */
+export function options(g, item, data, C = content()) {
+  if (g === 'tr') return data.opt.map((i) => C.TRIVIA[item].o[i]);
+  if (g === 'tt') { const x = C.TWO_TRUTHS[item]; const all = [x.t[0][0], x.t[1][0], x.lie[0]]; return data.opt.map((i) => all[i]); }
+  if (g === 'fv') return data.opt.map((vi) => verseHalves(C.VERSES[vi])[1]);
   if (g === 'tl') return [...Array(data.anchors.length + 1).keys()].map((i) => 'Gap ' + (i + 1));
   return [];
 }
@@ -61,15 +62,49 @@ export function booksInPlace(data, arrangement) {
   return books.filter((b, i) => b === data.set[i]).length;
 }
 
-/* ----- Hangman ----- */
-export const hangWord = (item) => HANGMAN[item][0];
-export function hangMask(word, guessed) {
-  return word.split('').map((c) => (c === ' ' ? ' ' : guessed.includes(c) ? c : '_'));
+/* ----- Hangman -----
+   English words are guessed letter by letter. Kannada words are guessed one akshara (written
+   syllable, e.g. ಬ್ರ or ಹಾ) at a time from a keyboard of the word's aksharas plus decoys. A word is
+   handled as a list of "tokens"; guesses are stored as a string (English: "AEB", Kannada: "ಅ|ಬ್ರ"). */
+const KN_RE = /[\u0C80-\u0CFF]/;
+export const isKannada = (s) => KN_RE.test(String(s || ''));
+/** Split Kannada text into aksharas: a vowel or a consonant cluster joined by virama, plus its signs. */
+export function aksharas(word) {
+  const out = [];
+  for (const ch of word) {
+    const c = ch.codePointAt(0);
+    const sign = (c >= 0x0C81 && c <= 0x0C83) || c === 0x0CBC || (c >= 0x0CBE && c <= 0x0CCD) || c === 0x0CD5 || c === 0x0CD6 || c === 0x200C || c === 0x200D;
+    const prev = out.length ? out[out.length - 1] : '';
+    if (out.length && (sign || prev.endsWith('\u0CCD'))) out[out.length - 1] += ch;
+    else out.push(ch);
+  }
+  return out;
 }
-export const hangWrong = (word, guessed) => guessed.split('').filter((c) => !word.includes(c)).length;
-export const hangSolved = (word, guessed) => word.split('').every((c) => c === ' ' || guessed.includes(c));
-export const hangFound = (word, guessed) => new Set(word.replace(/ /g, '').split('').filter((c) => guessed.includes(c))).size;
-export const hangLetters = (word) => new Set(word.replace(/ /g, '').split('')).size;
+/** The word as a list of words, each a list of tokens. */
+export const hangTokens = (word) => word.split(' ').map((w) => (isKannada(w) ? aksharas(w) : w.split('')));
+export const hangGuessList = (g) => (isKannada(g) ? String(g).split('|').filter(Boolean) : String(g || '').split(''));
+export const hangGuessJoin = (list) => (list.some(isKannada) ? list.join('|') : list.join(''));
+export const hangWord = (item, C = content()) => C.HANGMAN[item][0];
+const flat = (word) => hangTokens(word).flat();
+export function hangMask(word, guessed) {
+  const gs = hangGuessList(guessed);
+  return hangTokens(word).map((w) => w.map((c) => (gs.includes(c) ? c : '_'))).reduce((a, w, i) => a.concat(i ? [' '] : [], w), []);
+}
+export const hangWrong = (word, guessed) => { const f = flat(word); return hangGuessList(guessed).filter((c) => !f.includes(c)).length; };
+export const hangSolved = (word, guessed) => { const gs = hangGuessList(guessed); return flat(word).every((c) => gs.includes(c)); };
+export const hangFound = (word, guessed) => { const gs = hangGuessList(guessed); return new Set(flat(word).filter((c) => gs.includes(c))).size; };
+export const hangLetters = (word) => new Set(flat(word)).size;
+/** Keys to show: A–Z for English; for Kannada, the word's aksharas plus decoys, in a fixed shuffled order. */
+export function hangKeys(item, C = content()) {
+  const word = hangWord(item, C);
+  if (!isKannada(word)) return 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+  const mine = [...new Set(flat(word))];
+  const pool = [...new Set(C.HANGMAN.flatMap(([w]) => flat(w)))].filter((a) => !mine.includes(a)).sort();
+  const rand = seeded('hgkeys:' + item);
+  const want = Math.min(24, Math.max(18, Math.ceil((mine.length + 12) / 6) * 6)); // full rows of 6
+  const decoys = shuffle(pool, rand).slice(0, want - mine.length);
+  return shuffle([...mine, ...decoys], rand);
+}
 
 /** Is a player finished with this round? */
 export function isDone(g, a) {

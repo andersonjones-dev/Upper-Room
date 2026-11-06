@@ -1,7 +1,7 @@
 // Upper Room settings you can edit on GitHub without touching the app.
 // The Firebase web config is public by design; access is controlled by database.rules.json.
 
-export const APP_VERSION = '1.3.0';
+export const APP_VERSION = '1.4.0';
 
 export const firebaseConfig = {
   apiKey: 'AIzaSyCnAaJo1-F0ALDRHebgAwl5faF6eazl-mE',

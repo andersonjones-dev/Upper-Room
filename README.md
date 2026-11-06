@@ -2,9 +2,11 @@
 
 Bible party games where everyone plays on their own phone. One phone hosts and becomes "the table" (timer, scores, the map); everyone else joins with a four-letter code or by scanning a QR code. No accounts. Works on iPhone and Android in the browser, and can be added to the Home Screen.
 
-**Version 1.2.0 games (8 of 12):** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline. Pictionary, Heads Up, Bible Wordle and Exodus Escape show as "Soon" in the lobby.
+**Version 1.4.0 games (8 of 12):** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline. Pictionary, Heads Up, Bible Wordle and Exodus Escape show as "Soon" in the lobby.
 
 **Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
+
+**Languages:** English and Kannada (ಕನ್ನಡ). Each phone picks its own with the EN | ಕನ್ನಡ switch on the start screen or in Settings, so one room can mix both. The host chooses which verse or question comes up; every phone shows it in its own language. Kannada verses come from the Kannada Bible text (ಸತ್ಯವೇದವು) with scanning errors repaired; the questions, puzzles and hangman words were translated for this app and use the Kannada Bible's spellings of names. Emoji Bible accepts answers in either language.
 
 **Themes:** Cyberpunk Glitch and Stained Glass, each in light and dark (Luxury Noir was removed in 1.2.1). The host's theme shows on every phone in the room.
 
@@ -47,7 +49,7 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | File | What it does |
 |---|---|
 | `index.html` | The page shell. |
-| `css/tokens.css` | The three themes' colours, fonts, spacing (light and dark). |
+| `css/tokens.css` | The two themes' colours, fonts, spacing (light and dark). |
 | `css/app.css` | How every part looks, per theme. |
 | `js/app.js` | Screens, rooms, and the host's game control. |
 | `js/logic.js` | Scoring and rules (tested). |
@@ -60,6 +62,10 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `js/net-firebase.js` | Talks to Firebase. |
 | `js/net-local.js` | Test-only stand-in for Firebase (`?net=local`). |
 | `js/qr.js` | Makes the join QR code. |
+| `js/i18n.js` | Every on-screen word in English and Kannada, and the language switch. |
+| `js/text.js` | Gives each phone the game content in its own language. |
+| `js/kn/verses.js` | The 64 verses in Kannada, split into the same number of pieces. |
+| `js/kn/content.js` | Kannada questions, emoji answers, hangman words, Two Truths, timeline, books and tribes. |
 | `sw.js` | Offline support and the "A new version is ready" bar. Bump `VERSION` on every change. |
 | `database.rules.json` | Who can write what in the database. |
 
@@ -76,4 +82,5 @@ Players type a first name and pick a colour; nothing else is collected. Rooms ar
 node --test tests/logic.test.mjs
 node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots        # first three games
 node tests/e2e-games.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # the five 1.2 games
+node tests/e2e-kn.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots     # mixed English/Kannada room, all 8 games
 ```

@@ -407,3 +407,29 @@ button:disabled { cursor: default; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ---------- Language toggle and Kannada (1.4) ---------- */
+.langToggle { display: flex; flex: none; background: var(--color-surface); border: 1px solid var(--color-border); border-radius: 999px; padding: 3px; }
+.langToggle button { border: 0; background: none; border-radius: 999px; padding: 0 11px; min-height: 30px; font-family: 'Noto Sans Kannada', var(--font-body); font-size: 13px; font-weight: 700; color: var(--color-text-muted); cursor: pointer; letter-spacing: 0; }
+.langToggle button[aria-pressed="true"] { background: var(--color-text); color: var(--color-bg); }
+.cyber .langToggle { border-radius: 0; clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%); }
+.cyber .langToggle button { border-radius: 0; }
+
+/* Kannada falls back to Noto Sans Kannada; names and numbers keep the theme's own font. */
+html.cyber:lang(kn) { --font-display: 'Chakra Petch', 'Noto Sans Kannada', system-ui, sans-serif; --font-body: 'Chakra Petch', 'Noto Sans Kannada', system-ui, sans-serif; }
+html.glass:lang(kn) { --font-display: 'Cinzel', 'Noto Sans Kannada', Georgia, serif; --font-body: 'Crimson Pro', 'Noto Sans Kannada', Georgia, serif; }
+/* Letter spacing breaks Kannada letter joins, and stacked signs need taller lines. */
+html:lang(kn) *:not(.code):not(.big):not(.count) { letter-spacing: 0 !important; }
+html:lang(kn) .title, html:lang(kn) .h1, html:lang(kn) .card-title, html:lang(kn) .gname { line-height: 1.4; }
+html:lang(kn) .h1 { font-size: 36px; }
+html:lang(kn) .verse, html:lang(kn) .opt-t, html:lang(kn) .piece, html:lang(kn) .sub, html:lang(kn) .muted, html:lang(kn) .small { line-height: 1.5; }
+html:lang(kn) .lbl { text-transform: none; }
+.hang-kn .hang-w { gap: 6px; }
+.hang-kn .hang-c { width: auto; min-width: 34px; height: 44px; padding: 0 3px 2px; font-family: 'Noto Sans Kannada', var(--font-body); font-size: 22px; line-height: 1.5; }
+.hkeys-kn { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.hkeys-kn .hkey { font-family: 'Noto Sans Kannada', var(--font-body); font-size: 19px; line-height: 1.4; }
+@media (max-height: 720px) {
+  html:lang(kn) .h1 { font-size: 28px; line-height: 1.2; }
+  html:lang(kn) .sub { font-size: 15px; }
+  html:lang(kn) .sub { line-height: 1.4; }
+}

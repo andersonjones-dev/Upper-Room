@@ -82,22 +82,28 @@ export const cleanCode = (s) => String(s || '').toUpperCase().replace(/[^A-Z]/g,
 export function normalize(s) {
   return String(s || '')
     .toLowerCase()
-    .normalize('NFKD').replace(/[̀-ͯ]/g, '')
+    .normalize('NFKD').replace(/[\u0300-\u036f\u200b-\u200d]/g, '')
     .replace(/&/g, ' and ')
     .replace(/['‘’`]/g, '')
-    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/[^a-z0-9\u0c80-\u0cff]+/g, ' ')
     .trim()
     .split(' ')
     .filter(Boolean)
-    .map((w) => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w))
+    .map((w) => (w.length > 3 && /^[a-z]+s$/.test(w) ? w.slice(0, -1) : w))
     .join(' ');
 }
 
+const KN = /[\u0c80-\u0cff]/;
+/** English key words must appear as whole words; Kannada key words may appear inside a longer
+ *  word, because Kannada adds endings to names (ನೋಹನ, ನೋಹನು). */
 export function emojiMatches(guess, keys) {
   const g = normalize(guess);
   if (!g) return false;
   const padded = ' ' + g + ' ';
-  return keys.some((k) => normalize(k).split(' ').every((w) => padded.includes(' ' + w + ' ')));
+  return keys.some((k) => {
+    const words = normalize(k).split(' ').filter(Boolean);
+    return words.length > 0 && words.every((w) => (KN.test(w) ? g.includes(w) : padded.includes(' ' + w + ' ')));
+  });
 }
 
 export function isOrderCorrect(placed, n) {

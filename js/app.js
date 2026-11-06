@@ -1,5 +1,6 @@
 import { APP_VERSION, firebaseConfig, DEFAULT_THEME } from './config.js';
-import { VERSES, TRIVIA, EMOJI, TRIBES, BOOKS, HANGMAN, TWO_TRUTHS, TIMELINE } from './content.js';
+import { t, getLang, setLang, GAME_TEXT, MODE_KN, TEAM_KN, COLOR_KN } from './i18n.js';
+import { content } from './text.js';
 import * as G from './games.js';
 import * as L from './logic.js';
 import { qrSvg } from './qr.js';
@@ -31,6 +32,18 @@ const $bar = document.getElementById('bar');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const vibrate = (ms) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
 
+/* =================== Language =================== */
+const C = () => content();
+const kn = () => getLang() === 'kn';
+const gName = (g) => (kn() && GAME_TEXT.kn[g.id] ? GAME_TEXT.kn[g.id][0] : g.name);
+const gHow = (g) => (kn() && GAME_TEXT.kn[g.id] && GAME_TEXT.kn[g.id][1]) || g.how;
+const gMode = (g) => (kn() ? MODE_KN[g.mode] || g.mode : g.mode);
+const teamName = (tm) => (kn() ? TEAM_KN[tm] : L.TEAMS[tm]);
+const colorName = (c) => (kn() ? COLOR_KN[c] : c[0].toUpperCase() + c.slice(1));
+const ord = (n) => (kn() ? t('ordinal', { n }) : L.ordinal(n));
+const fmtT = (ms) => (kn() ? (ms / 1000).toFixed(1) + ' ಸೆ' : L.fmtSecs(ms));
+const langToggle = () => `<div class="langToggle" role="group" aria-label="${t('language')}"><button data-act="lang" data-v="en" aria-pressed="${!kn()}" lang="en">EN</button><button data-act="lang" data-v="kn" aria-pressed="${kn()}" lang="kn">ಕನ್ನಡ</button></div>`;
+
 /* =================== Theme =================== */
 const mq = window.matchMedia('(prefers-color-scheme: dark)');
 const BG = { cyber: ['#EEEDE8', '#0A0A0F'], glass: ['#F4EFE6', '#1B1530'] };
@@ -44,6 +57,12 @@ function activeTheme() {
   return ['cyber', 'glass'].includes(rt) ? rt : S.prefs.theme;
 }
 function applyTheme() {
+  if (kn() && !document.getElementById('font-kn')) {
+    const l = document.createElement('link');
+    l.rel = 'stylesheet'; l.id = 'font-kn';
+    l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;500;600;700&display=swap';
+    document.head.appendChild(l);
+  }
   const theme = activeTheme();
   const dark = S.prefs.mode === 'dark' || (S.prefs.mode === 'auto' && mq.matches);
   const key = theme + (dark ? ' dark' : '');
@@ -78,13 +97,13 @@ const avatar = (p, size = '') => `<div class="av ${size} jf c-${esc(p.color || '
 const markers = (i) => `<span class="mk mk-roman">${L.roman(i + 1)}</span><span class="mk mk-slash" aria-hidden="true">//</span><span class="mk mk-gem" aria-hidden="true"></span>`;
 const note = (ok, title, body) => `<div class="note jf ${ok ? 'c-ok' : 'c-bad'}" role="status"><span class="note-t">${title}</span>${body ? `<span class="note-b">${body}</span>` : ''}</div>`;
 const clockNow = (endsAt) => L.fmtClock(L.secondsLeft(endsAt, S.net ? S.net.now() : Date.now()));
-const timer = (endsAt, cls = 'timer') => `<div class="${cls}" data-ends="${endsAt}" aria-label="Time left">${clockNow(endsAt)}</div>`;
+const timer = (endsAt, cls = 'timer') => `<div class="${cls}" data-ends="${endsAt}" aria-label="${t('timeLeft')}">${clockNow(endsAt)}</div>`;
 const head = (title, det, endsAt, cls) => `<div class="row between"><div class="col"><h1 class="title">${title}</h1><span class="det small muted">${det}</span></div>${endsAt ? timer(endsAt, cls) : ''}</div>`;
 const players = () => (S.room && S.room.players) || {};
 const playerList = () => Object.entries(players()).filter(([, p]) => p && p.name).map(([uid, p]) => ({ uid, ...p }))
   .sort((a, b) => (a.joined || 0) - (b.joined || 0));
 const activeUids = () => playerList().filter((p) => p.online !== false).map((p) => p.uid);
-const pName = (uid) => (players()[uid] && players()[uid].name) || 'Someone';
+const pName = (uid) => (players()[uid] && players()[uid].name) || t('someone');
 const settingsFor = (g) => ({ ...(L.SETTINGS[g] ? L.SETTINGS[g].def : {}), ...(((S.room || {}).meta || {}).settings || {})[g] });
 
 /* =================== Rendering =================== */
@@ -119,7 +138,7 @@ function paint() {
 function paintChrome() {
   // Update bar
   const barHtml = S.updateReady
-    ? `<div class="update" role="status"><span>A new version is ready</span><button class="btn btn-p btn-sm" data-act="update">${S.updating ? 'Updating…' : 'Update'}</button></div>`
+    ? `<div class="update" role="status"><span>${t('newVersion')}</span><button class="btn btn-p btn-sm" data-act="update">${S.updating ? t('updating') : t('update')}</button></div>`
     : (S.toast ? `<div class="update toast" role="status"><span>${esc(S.toast)}</span></div>` : '');
   if ($bar._h !== barHtml) { $bar.innerHTML = barHtml; $bar._h = barHtml; }
   // Sheets
@@ -157,28 +176,28 @@ function viewHome() {
   return {
     cls: 'spread',
     secs: [
-      ['hdr', `<div class="hdr"><span class="brand">Upper Room</span>${iconBtn('menu', 'menu', 'Settings')}</div>`],
+      ['hdr', `<div class="hdr"><span class="brand">Upper Room</span><div class="row" style="gap:8px">${langToggle()}${iconBtn('menu', 'menu', t('settings'))}</div></div>`],
       ['deco', `<div class="hazard only-cyber" aria-hidden="true"></div>
         <div class="homegrid" aria-hidden="true"><div class="win"><div class="arch only-glass"><div class="rose"></div></div><div class="grid4">${tiles}</div></div><span class="syscode only-cyber">SYS//UR-12 · ROOM</span></div>`],
-      ['hero', `<div class="hero"><h1 class="h1">Gather<br>the room.</h1><p class="sub">Everyone plays on their own phone. This one becomes the table.</p></div>`],
-      ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? 'Connecting…' : 'Host a room'}</button><button class="btn btn-s" data-act="goJoin">Join with a code</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
-      ['about', `<button class="linkbtn" data-act="about">© 2026 Anderson Jones · About</button>`],
-      ['card', `<div class="card row between"><div class="col"><span class="card-title">8 games ready</span><span class="det small muted">4 more on the way</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
+      ['hero', `<div class="hero"><h1 class="h1">${t('heroTitle')}</h1><p class="sub">${t('heroSub')}</p></div>`],
+      ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? t('connecting') : t('hostRoom')}</button><button class="btn btn-s" data-act="goJoin">${t('joinCode')}</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
+      ['about', `<button class="linkbtn" data-act="about">${t('aboutLink')}</button>`],
+      ['card', `<div class="card row between"><div class="col"><span class="card-title">${t('gamesReady', { n: L.GAMES.filter((g) => g.ready).length })}</span><span class="det small muted">${t('moreSoon', { n: L.GAMES.filter((g) => !g.ready).length })}</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
     ]
   };
 }
 
 function viewJoin() {
-  const sw = L.COLORS.map((c) => `<button class="sw jf c-${c} ${S.profile.color === c ? 'is-sel' : ''}" data-act="color" data-c="${c}" aria-label="${c[0].toUpperCase() + c.slice(1)}" aria-pressed="${S.profile.color === c}"><span class="sw-dot"></span></button>`).join('');
+  const sw = L.COLORS.map((c) => `<button class="sw jf c-${c} ${S.profile.color === c ? 'is-sel' : ''}" data-act="color" data-c="${c}" aria-label="${colorName(c)}" aria-pressed="${S.profile.color === c}"><span class="sw-dot"></span></button>`).join('');
   return {
     cls: '',
     secs: [
-      ['jhdr', `<div class="row" style="gap:8px">${iconBtn('back', 'back', 'Back')}<h1 class="title grow">Join a room</h1></div><p class="muted" style="margin:0">Type the code on the host's screen.</p>`],
-      ['jcode', `<div class="col" style="gap:10px"><label class="lbl" for="code">Room code</label><input id="code" class="field code-input" data-draft="code" maxlength="4" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" aria-describedby="joinErr"></div>`],
-      ['jname', `<div class="col" style="gap:10px"><label class="lbl" for="name">Your name</label><input id="name" class="field" data-draft="name" maxlength="16" autocomplete="nickname" enterkeyhint="go"></div>`],
-      ['jcol', `<div class="col" style="gap:10px"><span class="lbl" id="colLbl">Your colour</span><div class="row swrow" role="group" aria-labelledby="colLbl">${sw}</div></div>`],
+      ['jhdr', `<div class="row" style="gap:8px">${iconBtn('back', 'back', t('back'))}<h1 class="title grow">${t('joinTitle')}</h1>${langToggle()}</div><p class="muted" style="margin:0">${t('joinHint')}</p>`],
+      ['jcode', `<div class="col" style="gap:10px"><label class="lbl" for="code">${t('roomCode')}</label><input id="code" class="field code-input" data-draft="code" maxlength="4" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="next" aria-describedby="joinErr"></div>`],
+      ['jname', `<div class="col" style="gap:10px"><label class="lbl" for="name">${t('yourName')}</label><input id="name" class="field" data-draft="name" maxlength="16" autocomplete="nickname" enterkeyhint="go"></div>`],
+      ['jcol', `<div class="col" style="gap:10px"><span class="lbl" id="colLbl">${t('yourColour')}</span><div class="row swrow" role="group" aria-labelledby="colLbl">${sw}</div></div>`],
       ['jerr', `<div id="joinErr">${S.joinErr ? note(false, esc(S.joinErr), '') : ''}</div>`],
-      ['jgo', `<div class="grow"></div><button class="btn btn-p" data-act="join" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Joining…' : 'Join'}</button><p class="small muted center" style="margin:0;text-align:center">No account needed. iPhone and Android, right in the browser.</p>`]
+      ['jgo', `<div class="grow"></div><button class="btn btn-p" data-act="join" ${S.busy ? 'disabled' : ''}>${S.busy ? t('joining') : t('join')}</button><p class="small muted center" style="margin:0;text-align:center">${t('noAccount')}</p>`]
     ]
   };
 }
@@ -186,10 +205,10 @@ function viewJoin() {
 /* =================== Views: room =================== */
 function viewRoom() {
   const r = S.room;
-  const conn = S.offline ? [['conn', `<div class="pill" role="status">Reconnecting to the game server…</div>`]] : [];
-  if (r === undefined) return { cls: 'center-v', secs: [['load', `<div class="col" style="align-items:center;gap:12px;text-align:center"><span class="lbl">Room ${esc(S.code)}</span><h1 class="title">Connecting…</h1></div>`]] };
+  const conn = S.offline ? [['conn', `<div class="pill" role="status">${t('reconnecting')}</div>`]] : [];
+  if (r === undefined) return { cls: 'center-v', secs: [['load', `<div class="col" style="align-items:center;gap:12px;text-align:center"><span class="lbl">${t('roomN', { c: esc(S.code) })}</span><h1 class="title">${t('connecting')}</h1></div>`]] };
   if (r === null || !r.meta) {
-    return { cls: 'center-v', secs: [['gone', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">This room has closed</h1><p class="muted" style="margin:0">The host ended room ${esc(S.code)}.</p><button class="btn btn-p" data-act="home">Back to start</button></div>`]] };
+    return { cls: 'center-v', secs: [['gone', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">${t('closedT')}</h1><p class="muted" style="margin:0">${t('closedB', { c: esc(S.code) })}</p><button class="btn btn-p" data-act="home">${t('backStart')}</button></div>`]] };
   }
   const st = r.meta.status;
   let out;
@@ -197,15 +216,15 @@ function viewRoom() {
     const rd = r.round, playing = st === 'playing' && r.meta.hostPlays && players()[S.net.uid] && rd;
     if (playing && rd.phase === 'play') {
       out = playerPlay();
-      out.secs = [['hostbar', `<div class="row between"><span class="pill">You're hosting and playing</span><button class="btn btn-s btn-sm" data-act="skip">Reveal now</button></div>`]].concat(out.secs);
+      out.secs = [['hostbar', `<div class="row between"><span class="pill">${t('hostPlayingPill')}</span><button class="btn btn-s btn-sm" data-act="skip">${t('revealNow')}</button></div>`]].concat(out.secs);
     } else if (playing && rd.phase === 'intro') out = { cls: '', secs: introSecs(rd, true).concat([hostControls(rd)]) };
     else out = st === 'playing' ? hostPlay() : st === 'results' ? hostResults() : hostLobby();
   }
   else {
-    if (!players()[S.net.uid]) return { cls: 'center-v', secs: [['out', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">You're not in this room</h1><button class="btn btn-p" data-act="home">Back to start</button></div>`]] };
+    if (!players()[S.net.uid]) return { cls: 'center-v', secs: [['out', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">${t('notInRoom')}</h1><button class="btn btn-p" data-act="home">${t('backStart')}</button></div>`]] };
     out = st === 'playing' ? playerPlay() : st === 'results' ? playerResults() : playerWait();
   }
-  if (S.role === 'player' && r.meta.hostOnline === false) conn.push(['hostoff', `<div class="pill" role="status">The host's phone is offline. Waiting for it to come back…</div>`]);
+  if (S.role === 'player' && r.meta.hostOnline === false) conn.push(['hostoff', `<div class="pill" role="status">${t('hostOff')}</div>`]);
   out.secs = conn.concat(out.secs);
   return out;
 }
@@ -214,31 +233,31 @@ function hostLobby() {
   const r = S.room, meta = r.meta, list = playerList();
   const game = L.gameById(meta.game || 'vs'), set = settingsFor(game.id), opts = L.SETTINGS[game.id];
   const roster = list.length
-    ? `<div class="roster">${list.map((p) => `<div class="pl">${avatar(p)}<span class="pl-n">${esc(p.name)}</span><span class="pl-s">${p.bot ? 'Bot' : p.online === false ? 'Away' : p.ready ? 'Ready' : ''}</span></div>`).join('')}</div>`
-    : `<p class="small muted" style="margin:0">Waiting for players. Share the code or let them scan the QR.</p>`;
+    ? `<div class="roster">${list.map((p) => `<div class="pl">${avatar(p)}<span class="pl-n">${esc(p.name)}</span><span class="pl-s">${p.bot ? t('bot') : p.online === false ? t('away') : p.ready ? t('ready') : ''}</span></div>`).join('')}</div>`
+    : `<p class="small muted" style="margin:0">${t('waitingPlayersHint')}</p>`;
   const nBots = list.filter((p) => p.bot).length;
-  const botRow = `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s btn-sm" data-act="addBot" ${list.length >= L.MAX_PLAYERS ? 'disabled' : ''}>Add practice bot</button>${nBots ? `<button class="btn btn-s btn-sm" data-act="removeBots">Remove ${nBots === 1 ? 'bot' : 'bots'}</button>` : ''}</div>`;
+  const botRow = `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s btn-sm" data-act="addBot" ${list.length >= L.MAX_PLAYERS ? 'disabled' : ''}>${t('addBot')}</button>${nBots ? `<button class="btn btn-s btn-sm" data-act="removeBots">${nBots === 1 ? t('removeBot') : t('removeBots')}</button>` : ''}</div>`;
   const tiles = L.GAMES.map((g) => g.ready
-    ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span><span>${g.mode}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(g.name)}</span></button>`
-    : `<button class="gtile jf c-${g.c}" disabled aria-label="${esc(g.name)}, coming soon"><span class="gn"><span>${g.n}</span><span>Soon</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(g.name)}</span></button>`).join('');
+    ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span><span>${esc(gMode(g))}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`
+    : `<button class="gtile jf c-${g.c}" disabled aria-label="${esc(t('comingSoon', { g: gName(g) }))}"><span class="gn"><span>${g.n}</span><span>${t('soon')}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`).join('');
   const seg = (k, vals, unit) => `<div class="seg" role="group" aria-label="${k}">${vals.map((v) => `<button class="chip ${set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${set[k] === v}">${v}${unit}</button>`).join('')}</div>`;
   const secs = [
-    ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">Room code</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', 'Share invite')}${iconBtn('qr', 'qr', 'Show QR code')}${iconBtn('menu', 'menu', 'Settings')}</div></div>${roster}${botRow}</div>`],
-    ['glbl', `<div class="row between"><h2 class="title sm">Pick a game</h2><span class="small muted">${list.length} ${list.length === 1 ? 'player' : 'players'}</span></div>`],
+    ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">${t('roomCode')}</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', t('shareInvite'))}${iconBtn('qr', 'qr', t('showQr'))}${iconBtn('menu', 'menu', t('settings'))}</div></div>${roster}${botRow}</div>`],
+    ['glbl', `<div class="row between"><h2 class="title sm">${t('pickGame')}</h2><span class="small muted">${list.length === 1 ? t('onePlayer') : t('nPlayers', { n: list.length })}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
-    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(game.name)}</span><span class="small">${esc(game.how)}</span><span class="lbl">${game.id === 'tr' ? 'Questions' : 'Rounds'}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">Seconds each</span>${seg('secs', opts.secs, 's')}</div>`]
+    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`]
   ];
   if (game.teams) {
-    const col = (t) => {
-      const ps = list.filter((p) => p.team === t);
-      return `<div class="team-col jf c-${t === 'ruby' ? 'ruby' : 'sapphire'}"><span class="team-n">${L.TEAMS[t]}</span>${ps.length ? ps.map((p) => `<span class="small">${esc(p.name)}</span>`).join('') : '<span class="small">No one yet</span>'}</div>`;
+    const col = (tc) => {
+      const ps = list.filter((p) => p.team === tc);
+      return `<div class="team-col jf c-${tc === 'ruby' ? 'ruby' : 'sapphire'}"><span class="team-n">${teamName(tc)}</span>${ps.length ? ps.map((p) => `<span class="small">${esc(p.name)}</span>`).join('') : `<span class="small">${t('noOneYet')}</span>`}</div>`;
     };
-    secs.push(['teams', `<div class="col" style="gap:10px"><div class="row between"><span class="lbl">Teams</span><button class="btn btn-s btn-sm" data-act="shuffleTeams" ${list.length < 2 ? 'disabled' : ''}>Shuffle teams</button></div><div class="grid2">${col('ruby')}${col('sapphire')}</div><p class="small muted" style="margin:0">Players can also switch team on their own phone.</p></div>`]);
+    secs.push(['teams', `<div class="col" style="gap:10px"><div class="row between"><span class="lbl">${t('teams')}</span><button class="btn btn-s btn-sm" data-act="shuffleTeams" ${list.length < 2 ? 'disabled' : ''}>${t('shuffleTeams')}</button></div><div class="grid2">${col('ruby')}${col('sapphire')}</div><p class="small muted" style="margin:0">${t('switchOwn')}</p></div>`]);
   }
   const hp = !!meta.hostPlays;
-  secs.push(['hostplay', `<div class="card col" style="gap:10px"><div class="row between"><div class="col"><span class="card-title">Play as well as host</span><span class="small muted">${hp ? 'Your phone shows your own answers during each round, and the table between rounds.' : 'Just host: this phone stays the table.'}</span></div><button class="switch ${hp ? 'on' : ''}" data-act="hostPlays" role="switch" aria-checked="${hp}" aria-label="Play as well as host"><span></span></button></div>${hp ? `<div class="row" style="gap:10px"><label class="lbl" for="hostName">Your name</label><input id="hostName" class="field" data-draft="name" maxlength="16" autocomplete="nickname" style="min-height:48px"></div>` : ''}</div>`]);
-  const closeLbl = Date.now() - S.confirmClose < 4000 ? 'Tap again to close the room' : 'Close room';
-  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length ? '' : 'disabled'}>${list.length ? 'Start ' + esc(game.name) : 'Waiting for players'}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
+  secs.push(['hostplay', `<div class="card col" style="gap:10px"><div class="row between"><div class="col"><span class="card-title">${t('playAsWell')}</span><span class="small muted">${hp ? t('hpOn') : t('hpOff')}</span></div><button class="switch ${hp ? 'on' : ''}" data-act="hostPlays" role="switch" aria-checked="${hp}" aria-label="${t('playAsWell')}"><span></span></button></div>${hp ? `<div class="row" style="gap:10px"><label class="lbl" for="hostName">${t('yourName')}</label><input id="hostName" class="field" data-draft="name" maxlength="16" autocomplete="nickname" style="min-height:48px"></div>` : ''}</div>`]);
+  const closeLbl = Date.now() - S.confirmClose < 4000 ? t('tapClose') : t('closeRoom');
+  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length ? '' : 'disabled'}>${list.length ? t('startG', { g: esc(gName(game)) }) : t('waitingPlayers')}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
   return { cls: '', secs };
 }
 
@@ -247,28 +266,28 @@ function introSecs(rd, forPlayer) {
   let extra = '';
   if (forPlayer && g.teams) {
     const me = players()[S.net.uid] || {};
-    extra = `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">You're on</span><span class="team-s sm">${L.TEAMS[me.team] || L.TEAMS.ruby}</span></div>`;
+    extra = `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${t('youreOn')}</span><span class="team-s sm">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span></div>`;
   }
   return [
-    ['h', head(esc(g.name), forPlayer ? 'Get ready' : `${rd.n} ${['tr', 'fv', 'tt'].includes(g.id) ? 'questions' : 'rounds'} · ${rd.secs}s each`)],
-    ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">Starting in</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(g.how)}</span></div>${extra}`]
+    ['h', head(esc(gName(g)), forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs }))],
+    ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">${t('startingIn')}</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(gHow(g))}</span></div>${extra}`]
   ];
 }
 
 function hostControls(rd) {
-  if (rd.phase === 'play') return ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="endGame">End game</button><button class="btn btn-p" data-act="skip">Reveal now</button></div>`];
-  if (rd.phase === 'reveal') return ['ctl', `<div class="grow"></div><div class="row between"><span class="lbl">${rd.i + 1 < rd.n ? 'Next round in' : 'Results in'}</span><span class="tpill" data-ends="${rd.endsAt}">${clockNow(rd.endsAt)}</span></div><div class="pair"><button class="btn btn-s" data-act="endGame">End game</button><button class="btn btn-p" data-act="nextNow">${rd.i + 1 < rd.n ? 'Next now' : 'See results'}</button></div>`];
-  return ['ctl', `<div class="grow"></div><button class="btn btn-s" data-act="endGame">End game</button>`];
+  if (rd.phase === 'play') return ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="endGame">${t('endGame')}</button><button class="btn btn-p" data-act="skip">${t('revealNow')}</button></div>`];
+  if (rd.phase === 'reveal') return ['ctl', `<div class="grow"></div><div class="row between"><span class="lbl">${rd.i + 1 < rd.n ? t('nextIn') : t('resultsIn')}</span><span class="tpill" data-ends="${rd.endsAt}">${clockNow(rd.endsAt)}</span></div><div class="pair"><button class="btn btn-s" data-act="endGame">${t('endGame')}</button><button class="btn btn-p" data-act="nextNow">${rd.i + 1 < rd.n ? t('nextNow') : t('seeResults')}</button></div>`];
+  return ['ctl', `<div class="grow"></div><button class="btn btn-s" data-act="endGame">${t('endGame')}</button>`];
 }
 
 const OPT_C = ['ruby', 'sapphire', 'emerald', 'amber', 'teal'];
 const LETTERS = 'ABCDE';
 const itemOf = (rd) => rd.seq[rd.i];
-const roundWord = (rd) => (['tr', 'fv', 'tt'].includes(rd.game) ? 'Question' : 'Round');
+const roundOf = (rd) => t(['tr', 'fv', 'tt'].includes(rd.game) ? 'qOf' : 'rOf', { i: rd.i + 1, n: rd.n });
 const countIn = (ans) => Object.values(ans).filter((a) => typeof a.a === 'number').length;
-const answeredRow = (ans, label = 'Answers in') => `<div class="row between"><span class="lbl">${label}</span><span class="small">${countIn(ans)} of ${activeUids().length}</span></div>`;
+const answeredRow = (ans, label = t('answersIn')) => `<div class="row between"><span class="lbl">${label}</span><span class="small">${t('xOfY', { a: countIn(ans), b: activeUids().length })}</span></div>`;
 const teamTotals = (rd) => ({ ruby: ((rd.teamPts || {}).ruby) || 0, sapphire: ((rd.teamPts || {}).sapphire) || 0 });
-const teamCards = (a, b, label) => `<div class="grid2"><div class="team jf c-ruby"><span class="team-n">Team Ruby</span><span class="team-s">${a}</span></div><div class="team jf c-sapphire"><span class="team-n">Team Sapphire</span><span class="team-s">${b}</span></div></div>${label ? `<span class="small muted">${label}</span>` : ''}`;
+const teamCards = (a, b, label) => `<div class="grid2"><div class="team jf c-ruby"><span class="team-n">${teamName('ruby')}</span><span class="team-s">${a}</span></div><div class="team jf c-sapphire"><span class="team-n">${teamName('sapphire')}</span><span class="team-s">${b}</span></div></div>${label ? `<span class="small muted">${label}</span>` : ''}`;
 
 /** Options as shown on the table (not tappable). Shows vote counts at the reveal when asked. */
 function optRows(opts, right, reveal, ans, showVotes, long) {
@@ -294,70 +313,71 @@ function timelineLine(anchors, card, insertAt, gapLabels) {
   const rows = [];
   anchors.forEach((ix, k) => {
     if (gapLabels) rows.push(`<div class="gapmark">${k + 1}</div>`);
-    if (insertAt === k) rows.push(`<div class="ev is-new"><span class="ev-n">${esc(TIMELINE[card][0])}</span><span class="ev-r">${esc(TIMELINE[card][1])}</span></div>`);
-    rows.push(`<div class="ev"><span class="ev-n">${esc(TIMELINE[ix][0])}</span><span class="ev-r">${esc(TIMELINE[ix][1])}</span></div>`);
+    if (insertAt === k) rows.push(`<div class="ev is-new"><span class="ev-n">${esc(C().TIMELINE[card][0])}</span><span class="ev-r">${esc(C().TIMELINE[card][1])}</span></div>`);
+    rows.push(`<div class="ev"><span class="ev-n">${esc(C().TIMELINE[ix][0])}</span><span class="ev-r">${esc(C().TIMELINE[ix][1])}</span></div>`);
   });
   if (gapLabels) rows.push(`<div class="gapmark">${anchors.length + 1}</div>`);
-  if (insertAt === anchors.length) rows.push(`<div class="ev is-new"><span class="ev-n">${esc(TIMELINE[card][0])}</span><span class="ev-r">${esc(TIMELINE[card][1])}</span></div>`);
+  if (insertAt === anchors.length) rows.push(`<div class="ev is-new"><span class="ev-n">${esc(C().TIMELINE[card][0])}</span><span class="ev-r">${esc(C().TIMELINE[card][1])}</span></div>`);
   return `<div class="col tline" style="gap:6px">${rows.join('')}</div>`;
 }
 /** `show` reveals every letter; `markMissed` colours the letters this player didn't find. */
 function hangSlots(word, guessed, show, markMissed) {
-  return `<div class="hang" aria-label="Hidden word">${word.split(' ').map((w) => `<span class="hang-w">${w.split('').map((c) => `<span class="hang-c ${guessed.includes(c) ? 'on' : show && markMissed ? 'missed' : ''}">${guessed.includes(c) || show ? c : ''}</span>`).join('')}</span>`).join('')}</div>`;
+  const gs = G.hangGuessList(guessed);
+  return `<div class="hang ${G.isKannada(word) ? 'hang-kn' : ''}" aria-label="${t('hiddenWord')}">${G.hangTokens(word).map((w) => `<span class="hang-w">${w.map((c) => `<span class="hang-c ${gs.includes(c) ? 'on' : show && markMissed ? 'missed' : ''}">${gs.includes(c) || show ? c : ''}</span>`).join('')}</span>`).join('')}</div>`;
 }
-const lives = (wrong) => `<div class="lives" role="img" aria-label="${G.MAX_WRONG - wrong} of ${G.MAX_WRONG} lives left">${[...Array(G.MAX_WRONG).keys()].map((k) => `<span class="life ${k < G.MAX_WRONG - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
+const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: G.MAX_WRONG - wrong, b: G.MAX_WRONG })}">${[...Array(G.MAX_WRONG).keys()].map((k) => `<span class="life ${k < G.MAX_WRONG - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
 
 function hostPlay() {
   const rd = S.room.round;
-  if (!rd) return { cls: '', secs: [['wait', '<p class="muted">Setting up…</p>']] };
+  if (!rd) return { cls: '', secs: [['wait', `<p class="muted">${t('setting')}</p>`]] };
   if (rd.phase === 'intro') return { cls: '', secs: introSecs(rd, false).concat([hostControls(rd)]) };
   const ans = ((S.room.answers || {})[rd.i]) || {};
   const g = L.gameById(rd.game), item = itemOf(rd), data = rd.data || {};
   const reveal = rd.phase === 'reveal';
-  const secs = [['h', head(esc(g.name), `${roundWord(rd)} ${rd.i + 1} of ${rd.n}`, reveal ? null : rd.endsAt)]];
+  const secs = [['h', head(esc(gName(g)), roundOf(rd), reveal ? null : rd.endsAt)]];
   const list = playerList();
   const res = { first: null, ...(rd.res || {}), pts: (rd.res && rd.res.pts) || {}, order: (rd.res && rd.res.order) || [] }; // the database drops empty lists
-  const firstNote = (ok, title, body) => secs.push(['rn', ok ? note(true, title, body) : note(false, 'No one got it', body)]);
+  const firstNote = (ok, title, body) => secs.push(['rn', ok ? note(true, title, body) : note(false, t('noOne'), body)]);
 
   if (rd.game === 'vs') {
-    const v = VERSES[item];
+    const v = C().VERSES[item];
     if (!reveal) {
-      secs.push(['card', `<div class="card col"><span class="lbl">Rebuild this verse</span><span class="title md">${esc(v.ref)}</span><span class="small">${v.parts.length} pieces · fastest correct order wins</span></div>`]);
-      const rows = list.map((p) => { const a = ans[p.uid] || {}; return { p, done: !!a.ok, ms: a.ms, pct: a.ok ? 100 : Math.min(95, Math.round(((a.placed || 0) / v.parts.length) * 100)), status: a.ok ? 'Done · ' + L.fmtSecs(a.ms) : a.placed ? 'Placing…' : 'Thinking…' }; })
+      secs.push(['card', `<div class="card col"><span class="lbl">${t('rebuild')}</span><span class="title md">${esc(v.ref)}</span><span class="small">${t('piecesFast', { n: v.parts.length })}</span></div>`]);
+      const rows = list.map((p) => { const a = ans[p.uid] || {}; return { p, done: !!a.ok, ms: a.ms, pct: a.ok ? 100 : Math.min(95, Math.round(((a.placed || 0) / v.parts.length) * 100)), status: a.ok ? t('doneT', { t: fmtT(a.ms) }) : a.placed ? t('placing') : t('thinking') }; })
         .sort((x, y) => (y.done ? 1e9 - y.ms : y.pct) - (x.done ? 1e9 - x.ms : x.pct));
       secs.push(['race', raceRows(rows)]);
     } else {
       secs.push(['card', `<div class="card col" style="gap:8px"><span class="lbl">${esc(v.ref)}</span><span class="verse">${esc(v.parts.join(' '))}</span></div>`]);
-      secs.push(['res', resultList(res.order, (uid) => 'Done · ' + L.fmtSecs((ans[uid] || {}).ms || 0), res.pts)]);
+      secs.push(['res', resultList(res.order, (uid) => t('doneT', { t: fmtT((ans[uid] || {}).ms || 0) }), res.pts)]);
     }
   }
 
   if (rd.game === 'tr') {
-    const q = TRIVIA[item], opts = G.options('tr', item, data), right = G.correctOption('tr', item, data);
+    const q = C().TRIVIA[item], opts = G.options('tr', item, data), right = G.correctOption('tr', item, data);
     const cc = L.countClaims(rd.claims || {});
     secs.push(['teams', teamCards(cc.ruby, cc.sapphire)]);
     secs.push(['q', `<div class="card"><span class="title md" style="line-height:1.25">${esc(q.q)}</span></div>`]);
     secs.push(['opts', optRows(opts, right, reveal, ans, false)]);
     if (reveal) {
-      const t = res.first ? (players()[res.first] || {}).team || 'ruby' : null;
-      const won = L.tribesFor(rd.i, rd.n).map((x) => TRIBES[x]).join(' and ');
-      firstNote(!!res.first, `${esc(pName(res.first))} was first`, res.first ? `${L.TEAMS[t]} claims ${esc(won)}. ${esc(q.ref)}.` : `The answer was ${esc(opts[right])}. ${esc(q.ref)}.`);
+      const tm = res.first ? (players()[res.first] || {}).team || 'ruby' : null;
+      const won = L.tribesFor(rd.i, rd.n).map((x) => C().TRIBES[x]).join(t('and'));
+      firstNote(!!res.first, t('wasFirst', { n: esc(pName(res.first)) }), res.first ? t('claims', { team: teamName(tm), won: esc(won), ref: esc(q.ref) }) : t('answerWas', { a: esc(opts[right]), ref: esc(q.ref) }));
     } else secs.push(['cnt', answeredRow(ans)]);
     const claims = rd.claims || {}, fresh = reveal && res.first ? L.tribesFor(rd.i, rd.n) : [];
-    secs.push(['map', `<span class="lbl">The land · north to south</span><div class="win"><div class="grid3">${TRIBES.map((name, i) => { const c = claims[i]; return `<div class="trb ${c ? 'jf c-' + c : 'open'} ${fresh.includes(i) ? 'is-new' : ''}"><span class="trb-n">${name}</span><span class="trb-o">${c ? L.TEAMS[c] : 'Open'}</span></div>`; }).join('')}</div></div>`]);
+    secs.push(['map', `<span class="lbl">${t('landNS')}</span><div class="win"><div class="grid3">${C().TRIBES.map((name, i) => { const c = claims[i]; return `<div class="trb ${c ? 'jf c-' + c : 'open'} ${fresh.includes(i) ? 'is-new' : ''}"><span class="trb-n">${name}</span><span class="trb-o">${c ? teamName(c) : t('open')}</span></div>`; }).join('')}</div></div>`]);
   }
 
   if (rd.game === 'fv') {
-    const v = VERSES[item], [start] = G.verseHalves(v), opts = G.options('fv', item, data), right = G.correctOption('fv', item, data);
+    const v = C().VERSES[item], [start] = G.verseHalves(v), opts = G.options('fv', item, data), right = G.correctOption('fv', item, data);
     const tt = teamTotals(rd);
     secs.push(['teams', teamCards(tt.ruby, tt.sapphire)]);
     secs.push(['q', reveal
       ? `<div class="card col" style="gap:8px"><span class="lbl">${esc(v.ref)}</span><span class="verse">${esc(v.parts.join(' '))}</span></div>`
-      : `<div class="card col" style="gap:8px"><span class="lbl">Finish the verse · ${esc(v.ref)}</span><span class="verse">${esc(start)} …</span></div>`]);
+      : `<div class="card col" style="gap:8px"><span class="lbl">${t('finishVerse', { ref: esc(v.ref) })}</span><span class="verse">${esc(start)} …</span></div>`]);
     if (reveal) {
-      const t = res.first ? (players()[res.first] || {}).team || 'ruby' : null;
-      firstNote(!!res.first, `${esc(pName(res.first))} was first`, res.first ? `Bonus to ${L.TEAMS[t]}. The answer was ${LETTERS[right]}.` : `The answer was ${LETTERS[right]}.`);
-      if (res.order.length) secs.push(['res', resultList(res.order, (uid) => L.TEAMS[(players()[uid] || {}).team === 'sapphire' ? 'sapphire' : 'ruby'], res.pts)]);
+      const tm = res.first ? (players()[res.first] || {}).team || 'ruby' : null;
+      firstNote(!!res.first, t('wasFirst', { n: esc(pName(res.first)) }), res.first ? t('bonusTo', { team: teamName(tm), l: LETTERS[right] }) : t('answerWasL', { l: LETTERS[right] }));
+      if (res.order.length) secs.push(['res', resultList(res.order, (uid) => teamName((players()[uid] || {}).team === 'sapphire' ? 'sapphire' : 'ruby'), res.pts)]);
     } else {
       secs.push(['opts', optRows(opts, right, false, ans, false, true)]);
       secs.push(['cnt', answeredRow(ans)]);
@@ -365,56 +385,58 @@ function hostPlay() {
   }
 
   if (rd.game === 'tt') {
-    const x = TWO_TRUTHS[item], opts = G.options('tt', item, data), right = G.correctOption('tt', item, data);
-    secs.push(['who', `<div class="card col" style="align-items:center;text-align:center"><span class="lbl">Two truths and a lie about</span><span class="title lg glitch">${esc(x.who)}</span></div>`]);
+    const x = C().TWO_TRUTHS[item], opts = G.options('tt', item, data), right = G.correctOption('tt', item, data);
+    secs.push(['who', `<div class="card col" style="align-items:center;text-align:center"><span class="lbl">${t('aboutWho')}</span><span class="title lg glitch">${esc(x.who)}</span></div>`]);
     secs.push(['opts', optRows(opts, right, reveal, ans, reveal)]);
     if (reveal) {
       const refs = data.opt.map((k) => (k < 2 ? x.t[k][1] : null));
-      secs.push(['refs', `<div class="col" style="gap:4px">${refs.map((r, i) => (r ? `<span class="small muted">${LETTERS[i]} is true · ${esc(r)}</span>` : '')).join('')}</div>`]);
-      secs.push(['rn', note(true, `${LETTERS[right]} was the lie`, esc(x.lie[1]))]);
-      secs.push(['res', `<span class="lbl">Spotted it</span>${resultList(res.order, (uid, i) => `${i === 0 ? 'First' : L.ordinal(i + 1)} · ${L.fmtSecs(Math.max(0, ((ans[uid] || {}).at || rd.startedAt) - rd.startedAt))}`, res.pts)}`]);
-    } else secs.push(['cnt', answeredRow(ans, 'Votes in')]);
+      secs.push(['refs', `<div class="col" style="gap:4px">${refs.map((r, i) => (r ? `<span class="small muted">${t('isTrue', { l: LETTERS[i], ref: esc(r) })}</span>` : '')).join('')}</div>`]);
+      secs.push(['rn', note(true, t('wasLie', { l: LETTERS[right] }), esc(x.lie[1]))]);
+      secs.push(['res', `<span class="lbl">${t('spotted')}</span>${resultList(res.order, (uid, i) => `${i === 0 ? t('first') : ord(i + 1)} · ${fmtT(Math.max(0, ((ans[uid] || {}).at || rd.startedAt) - rd.startedAt))}`, res.pts)}`]);
+    } else secs.push(['cnt', answeredRow(ans, t('votesIn'))]);
   }
 
   if (rd.game === 'tl') {
     const right = G.correctOption('tl', item, data);
-    secs.push(['card', `<div class="card col" style="gap:6px"><span class="lbl">Where does it go?</span><span class="title md">${esc(TIMELINE[item][0])}</span><span class="det small muted">${reveal ? esc(TIMELINE[item][1]) : 'Pick the gap on your phone'}</span></div>`]);
+    secs.push(['card', `<div class="card col" style="gap:6px"><span class="lbl">${t('whereGo')}</span><span class="title md">${esc(C().TIMELINE[item][0])}</span><span class="det small muted">${reveal ? esc(C().TIMELINE[item][1]) : t('pickGap')}</span></div>`]);
     secs.push(['line', timelineLine(data.anchors, item, reveal ? right : -1, !reveal)]);
-    if (reveal) firstNote(!!res.first, `${esc(pName(res.first))} was first`, res.first ? `${res.order.length} placed it right, in gap ${right + 1}.` : `It goes in gap ${right + 1}.`);
+    if (reveal) firstNote(!!res.first, t('wasFirst', { n: esc(pName(res.first)) }), res.first ? t('placedRight', { n: res.order.length, g: right + 1 }) : t('goesGap', { g: right + 1 }));
     else secs.push(['cnt', answeredRow(ans)]);
   }
 
   if (rd.game === 'hg') {
-    const [word, cat] = HANGMAN[item], total = G.hangLetters(word);
-    secs.push(['card', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="cat-badge">${esc(cat)}</span><span class="small muted">${word.replace(/ /g, '').length} letters${word.includes(' ') ? ' · ' + word.split(' ').length + ' words' : ''}</span>${hangSlots(word, '', reveal)}</div>`]);
-    const rows = list.map((p) => { const a = ans[p.uid] || {}; const gs = a.g || ''; const wrong = G.hangWrong(word, gs);
-      return { p, done: !!a.ok, ms: a.ms || 0, pct: Math.round((G.hangFound(word, gs) / total) * 100), status: a.ok ? 'Solved · ' + L.fmtSecs(a.ms) : a.out ? 'Out' : `${G.MAX_WRONG - wrong} lives` }; })
+    const [word, cat] = C().HANGMAN[item], total = G.hangLetters(word);
+    secs.push(['card', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="cat-badge">${esc(cat)}</span><span class="small muted">${t('nLetters', { n: G.hangTokens(word).flat().length })}${word.includes(' ') ? t('nWords', { n: word.split(' ').length }) : ''}</span>${hangSlots(word, '', reveal)}</div>`]);
+    // Players report found/total/wrong themselves, because their phone may show the word in another language.
+    const rows = list.map((p) => { const a = ans[p.uid] || {}; const gs = a.g || '';
+      const wrong = typeof a.w === 'number' ? a.w : G.hangWrong(word, gs), pct = a.t ? (a.f || 0) / a.t : G.hangFound(word, gs) / total;
+      return { p, done: !!a.ok, ms: a.ms || 0, pct: Math.round(pct * 100), status: a.ok ? t('solvedT', { t: fmtT(a.ms) }) : a.out ? t('outT') : t('livesN', { n: Math.max(0, G.MAX_WRONG - wrong) }) }; })
       .sort((x, y) => (y.done ? 1e9 - y.ms : y.pct) - (x.done ? 1e9 - x.ms : x.pct));
-    secs.push(['race', reveal ? resultList(res.order, (uid) => 'Solved · ' + L.fmtSecs((ans[uid] || {}).ms || 0), res.pts) : raceRows(rows)]);
+    secs.push(['race', reveal ? resultList(res.order, (uid) => t('solvedT', { t: fmtT((ans[uid] || {}).ms || 0) }), res.pts) : raceRows(rows)]);
   }
 
   if (rd.game === 'bk') {
-    const books = data.set.map((b) => BOOKS[b]);
+    const books = data.set.map((b) => C().BOOKS[b]);
     if (!reveal) {
-      secs.push(['card', `<div class="card col" style="gap:8px"><span class="lbl">Put these in Bible order</span><span class="small">${data.order.map((k) => esc(BOOKS[data.set[k]])).join(' · ')}</span></div>`]);
-      const rows = list.map((p) => { const a = ans[p.uid] || {}; return { p, done: !!a.ok, ms: a.ms || 0, status: a.ok ? 'Done · ' + L.fmtSecs(a.ms) : a.checks ? `Checked ${a.checks}×` : 'Sorting…' }; })
+      secs.push(['card', `<div class="card col" style="gap:8px"><span class="lbl">${t('putOrder')}</span><span class="small">${data.order.map((k) => esc(C().BOOKS[data.set[k]])).join(' · ')}</span></div>`]);
+      const rows = list.map((p) => { const a = ans[p.uid] || {}; return { p, done: !!a.ok, ms: a.ms || 0, status: a.ok ? t('doneT', { t: fmtT(a.ms) }) : a.checks ? t('checkedN', { n: a.checks }) : t('sorting') }; })
         .sort((x, y) => (y.done ? 1e9 - y.ms : 0) - (x.done ? 1e9 - x.ms : 0));
       secs.push(['race', raceRows(rows)]);
     } else {
-      secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">Bible order</span>${books.map((b, i) => `<span class="li-name">${L.roman(i + 1)}. ${esc(b)}</span>`).join('')}</div>`]);
-      secs.push(['res', resultList(res.order, (uid) => 'Done · ' + L.fmtSecs((ans[uid] || {}).ms || 0), res.pts)]);
+      secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">${t('bibleOrder')}</span>${books.map((b, i) => `<span class="li-name">${L.roman(i + 1)}. ${esc(b)}</span>`).join('')}</div>`]);
+      secs.push(['res', resultList(res.order, (uid) => t('doneT', { t: fmtT((ans[uid] || {}).ms || 0) }), res.pts)]);
     }
   }
 
   if (rd.game === 'em') {
-    const e = EMOJI[item];
+    const e = C().EMOJI[item];
     if (!reveal) {
       const solved = L.scoreEmoji(ans).order;
-      secs.push(['card', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="lbl">Which Bible story?</span><span class="emoji" role="img" aria-label="Emoji clue">${e.e}</span></div>`]);
-      secs.push(['solved', `<div class="row between"><span class="lbl">Solved</span><span class="small">${solved.length} of ${activeUids().length}</span></div>${solved.length ? `<div class="list">${solved.map((uid, i) => { const p = players()[uid] || {}; return `<div class="li c-${esc(p.color)} is-done">${markers(i)}${avatar(p, 'sm')}<span class="li-name grow">${esc(p.name)}</span><span class="li-det">${L.ordinal(i + 1)}</span></div>`; }).join('')}</div>` : '<p class="small muted" style="margin:0">No one yet. Answers appear here as they come in.</p>'}`]);
+      secs.push(['card', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="lbl">${t('whichStory')}</span><span class="emoji" role="img" aria-label="${t('emojiClue')}">${e.e}</span></div>`]);
+      secs.push(['solved', `<div class="row between"><span class="lbl">${t('solvedL')}</span><span class="small">${t('xOfY', { a: solved.length, b: activeUids().length })}</span></div>${solved.length ? `<div class="list">${solved.map((uid, i) => { const p = players()[uid] || {}; return `<div class="li c-${esc(p.color)} is-done">${markers(i)}${avatar(p, 'sm')}<span class="li-name grow">${esc(p.name)}</span><span class="li-det">${ord(i + 1)}</span></div>`; }).join('')}</div>` : `<p class="small muted" style="margin:0">${t('noOneYetAns')}</p>`}`]);
     } else {
       secs.push(['card', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="emoji" aria-hidden="true">${e.e}</span><span class="title md">${esc(e.a)}</span><span class="det small muted">${esc(e.ref)}</span></div>`]);
-      secs.push(['res', resultList(res.order, (uid, i) => L.ordinal(i + 1), res.pts)]);
+      secs.push(['res', resultList(res.order, (uid, i) => ord(i + 1), res.pts)]);
     }
   }
   secs.push(hostControls(rd));
@@ -422,7 +444,7 @@ function hostPlay() {
 }
 
 function resultList(order, detFn, pts) {
-  if (!order || !order.length) return `<p class="muted" style="margin:0">No one got this one.</p>`;
+  if (!order || !order.length) return `<p class="muted" style="margin:0">${t('noOneThis')}</p>`;
   return `<div class="list">${order.map((uid, i) => { const p = players()[uid] || {}; return `<div class="li c-${esc(p.color)} is-done">${markers(i)}${avatar(p, 'sm')}<div class="grow col"><span class="li-name">${esc(p.name)}</span><span class="li-det">${detFn(uid, i)}</span></div><span class="li-name">+${pts[uid] || 0}</span></div>`; }).join('')}</div>`;
 }
 
@@ -432,24 +454,24 @@ function podiumHtml(rows) {
 }
 
 function teamLine(a, b, what) {
-  if (a === b) return `The teams are level, ${a}–${b}${what}.`;
-  return `${a > b ? 'Team Ruby' : 'Team Sapphire'} wins, ${Math.max(a, b)}–${Math.min(a, b)}${what}.`;
+  if (a === b) return t('level', { a, b, w: what });
+  return t('wins', { team: teamName(a > b ? 'ruby' : 'sapphire'), a: Math.max(a, b), b: Math.min(a, b), w: what });
 }
 function hostResults() {
   const rows = L.standings(players());
   const rd = S.room.round || {};
   const top = rows[0];
-  const line = top ? `${esc(top.name)} takes it.` : 'Game over.';
+  const line = top ? t('takesIt', { n: esc(top.name) }) : t('gameOver');
   let sub = '';
-  if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, ' in tribes'); }
-  if (rd.game === 'fv') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, ' in points'); }
+  if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, t('inTribes')); }
+  if (rd.game === 'fv') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
   return {
     cls: '',
     secs: [
-      ['h', `<div class="col center"><span class="lbl">Tonight's table</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
+      ['h', `<div class="col center"><span class="lbl">${t('tonight')}</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
       ['pod', podiumHtml(rows)],
       ['board', `<div class="card list">${rows.map((p, i) => `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="li-name grow">${esc(p.name)}</span><span class="li-det strong">${p.score}</span></div>`).join('')}</div>`],
-      ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="toLobby">Another game</button><button class="btn btn-p" data-act="again">Play again</button></div>`]
+      ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="toLobby">${t('anotherGame')}</button><button class="btn btn-p" data-act="again">${t('playAgain')}</button></div>`]
     ]
   };
 }
@@ -459,12 +481,12 @@ function playerWait() {
   const meta = S.room.meta, me = players()[S.net.uid];
   const g = L.gameById(meta.game || 'vs');
   const secs = [
-    ['pill', `<div class="row between"><div class="pill">Room <span class="accent">${esc(S.code)}</span> · ${playerList().length} ${playerList().length === 1 ? 'player' : 'players'}</div>${iconBtn('menu', 'menu', 'Settings and leave room')}</div>`],
-    ['me', `<div class="grow col" style="align-items:center;justify-content:center;gap:16px;text-align:center">${avatar(me, 'lg')}<h1 class="title lg glitch">You're in.</h1><span class="muted">The host is choosing a game</span></div>`],
-    ['next', `<div class="card row" style="gap:14px"><div class="tile jf c-${g.c} tile-lg" aria-hidden="true">${esc(g.sym)}</div><div class="col"><span class="lbl">Up next</span><span class="card-title">${esc(g.name)}</span><span class="det small muted">${esc(g.mode)}</span></div></div>`]
+    ['pill', `<div class="row between"><div class="pill">${t('room')} <span class="accent">${esc(S.code)}</span> · ${playerList().length === 1 ? t('onePlayer') : t('nPlayers', { n: playerList().length })}</div>${iconBtn('menu', 'menu', t('menuLeave'))}</div>`],
+    ['me', `<div class="grow col" style="align-items:center;justify-content:center;gap:16px;text-align:center">${avatar(me, 'lg')}<h1 class="title lg glitch">${t('youreIn')}</h1><span class="muted">${t('choosing')}</span></div>`],
+    ['next', `<div class="card row" style="gap:14px"><div class="tile jf c-${g.c} tile-lg" aria-hidden="true">${esc(g.sym)}</div><div class="col"><span class="lbl">${t('upNext')}</span><span class="card-title">${esc(gName(g))}</span><span class="det small muted">${esc(gMode(g))}</span></div></div>`]
   ];
-  if (g.teams) secs.push(['team', `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${L.TEAMS[me.team] || L.TEAMS.ruby}</span><button class="btn btn-s btn-sm" data-act="switchTeam">Switch team</button></div>`]);
-  secs.push(['ready', `<button class="btn ${me.ready ? 'btn-s' : 'btn-p'}" data-act="ready" aria-pressed="${!!me.ready}">${me.ready ? 'Ready · waiting for the host' : "I'm ready"}</button>`]);
+  if (g.teams) secs.push(['team', `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span><button class="btn btn-s btn-sm" data-act="switchTeam">${t('switchTeam')}</button></div>`]);
+  secs.push(['ready', `<button class="btn ${me.ready ? 'btn-s' : 'btn-p'}" data-act="ready" aria-pressed="${!!me.ready}">${me.ready ? t('readyWaiting') : t('imReady')}</button>`]);
   return { cls: '', secs };
 }
 
@@ -474,7 +496,7 @@ function ensureLocal(rd) {
   const mine = (((S.room.answers || {})[rd.i]) || {})[S.net.uid] || {};
   S.local = { key, placed: [], wrong: 0, done: !!mine.ok, ms: mine.ms || 0, guessWrong: false, tries: 0,
     guessed: mine.g || '', arr: [...Array(G.BOOK_SET).keys()], sel: null, bkMiss: null };
-  if (rd.game === 'vs' && mine.ok) S.local.placed = VERSES[itemOf(rd)].parts.map((_, i) => i);
+  if (rd.game === 'vs' && mine.ok) S.local.placed = C().VERSES[itemOf(rd)].parts.map((_, i) => i);
   if (rd.game === 'bk' && mine.ok && rd.data) S.local.arr = [...Array(G.BOOK_SET).keys()].sort((a, b) => rd.data.order[a] - rd.data.order[b]);
   S.drafts.guess = '';
   S.clearGuess = true;
@@ -483,140 +505,141 @@ function ensureLocal(rd) {
 
 function playerPlay() {
   const rd = S.room.round;
-  if (!rd) return { cls: '', secs: [['wait', '<p class="muted">Getting ready…</p>']] };
+  if (!rd) return { cls: '', secs: [['wait', `<p class="muted">${t('gettingReady')}</p>`]] };
   if (rd.phase === 'intro') return { cls: '', secs: introSecs(rd, true) };
   const uid = S.net.uid, me = players()[uid] || {};
   const ans = ((S.room.answers || {})[rd.i]) || {}, mine = ans[uid] || {};
   const loc = ensureLocal(rd);
   const res = { first: null, ...(rd.res || {}), pts: (rd.res && rd.res.pts) || {}, order: (rd.res && rd.res.order) || [] }; // the database drops empty lists
   const myPts = res.pts[uid] || 0;
-  const det = `${roundWord(rd)} ${rd.i + 1} of ${rd.n}`;
+  const det = roundOf(rd);
   const g = L.gameById(rd.game), item = itemOf(rd), data = rd.data || {};
   const reveal = rd.phase === 'reveal';
   const picked = typeof mine.a === 'number' ? mine.a : null;
   const team = me.team === 'sapphire' ? 'sapphire' : 'ruby';
   const secs = [];
   const choiceResult = (right, okBody, badBody) => {
-    if (picked === right) secs.push(['n', note(true, res.first === uid ? `First right answer · +${myPts}` : `Right · +${myPts}`, okBody)]);
-    else secs.push(['n', note(false, picked === null ? 'Out of time' : 'Not this time', badBody)]);
+    if (picked === right) secs.push(['n', note(true, res.first === uid ? t('firstRight', { p: myPts }) : t('rightP', { p: myPts }), okBody)]);
+    else secs.push(['n', note(false, picked === null ? t('outOfTime') : t('notThisTime'), badBody)]);
   };
 
   if (rd.game === 'vs') {
-    const v = VERSES[item], n = v.parts.length;
+    const v = C().VERSES[item], n = v.parts.length;
     if (!reveal) {
-      secs.push(['h', head(esc(v.ref), `${esc(g.name)} · ${det}`, rd.endsAt, 'tpill')]);
-      secs.push(['lbl', `<span class="lbl">${loc.done ? 'Locked in' : 'Tap the pieces in order'}</span>`]);
+      secs.push(['h', head(esc(v.ref), `${esc(gName(g))} · ${det}`, rd.endsAt, 'tpill')]);
+      secs.push(['lbl', `<span class="lbl">${loc.done ? t('lockedIn') : t('tapInOrder')}</span>`]);
       const placed = loc.placed.map((pi, k) => `<button class="piece placed jf c-${esc(me.color || 'amethyst')}" data-act="unpiece" data-k="${k}" ${loc.done ? 'disabled' : ''}>${esc(v.parts[pi])}</button>`).join('');
-      secs.push(['zone', `<div class="zone" aria-label="Your verse">${placed || '<span class="muted">Your verse builds here. Tap a placed piece to take it back.</span>'}</div>`]);
+      secs.push(['zone', `<div class="zone" aria-label="${t('yourVerse')}">${placed || `<span class="muted">${t('buildsHere')}</span>`}</div>`]);
       const pool = data.order.filter((pi) => !loc.placed.includes(pi)).map((pi) => `<button class="piece" data-act="piece" data-p="${pi}">${esc(v.parts[pi])}</button>`).join('');
       secs.push(['pool', `<div class="pieces">${pool}</div>`]);
-      if (loc.done) secs.push(['n', note(true, `Locked in · ${L.fmtSecs(loc.ms)}`, 'Watch the table.')]);
-      else if (loc.placed.length === n) secs.push(['n', note(false, 'Not quite', 'Plus 3 seconds. Tap a piece to take it back and try again.')]);
-      if (!loc.done) secs.push(['clr', `<div class="grow"></div><button class="btn btn-s" data-act="clearPieces" ${loc.placed.length ? '' : 'disabled'}>Clear my answer</button>`]);
+      if (loc.done) secs.push(['n', note(true, t('lockedInT', { t: fmtT(loc.ms) }), t('watchTable'))]);
+      else if (loc.placed.length === n) secs.push(['n', note(false, t('notQuite'), t('plus3'))]);
+      if (!loc.done) secs.push(['clr', `<div class="grow"></div><button class="btn btn-s" data-act="clearPieces" ${loc.placed.length ? '' : 'disabled'}>${t('clearAns')}</button>`]);
     } else {
-      secs.push(['h', head('Round over', `${esc(g.name)} · ${det}`)]);
-      secs.push(['you', myPts ? note(true, `+${myPts} · ${L.ordinal(res.order.indexOf(uid) + 1)}`, `You finished in ${L.fmtSecs(mine.ms || loc.ms)}.`) : note(false, 'No points this round', 'Be quicker next time.')]);
+      secs.push(['h', head(t('roundOver'), `${esc(gName(g))} · ${det}`)]);
+      secs.push(['you', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('finishedIn', { t: fmtT(mine.ms || loc.ms) })) : note(false, t('noPoints'), t('beQuicker'))]);
       secs.push(['card', `<div class="card col" style="gap:8px"><span class="lbl">${esc(v.ref)}</span><span class="verse">${esc(v.parts.join(' '))}</span></div>`]);
     }
   }
 
   if (rd.game === 'tr') {
-    const q = TRIVIA[item], opts = G.options('tr', item, data), right = G.correctOption('tr', item, data);
-    secs.push(['team', `<div class="team jf c-${team}"><span class="team-n">${L.TEAMS[team]}</span>${reveal ? `<span class="small">${det}</span>` : timer(rd.endsAt, 'tpill')}</div>`]);
+    const q = C().TRIVIA[item], opts = G.options('tr', item, data), right = G.correctOption('tr', item, data);
+    secs.push(['team', `<div class="team jf c-${team}"><span class="team-n">${teamName(team)}</span>${reveal ? `<span class="small">${det}</span>` : timer(rd.endsAt, 'tpill')}</div>`]);
     secs.push(['q', `<h1 class="title md" style="line-height:1.2">${esc(q.q)}</h1>`]);
     secs.push(['opts', optButtons(opts, picked, right, reveal, false)]);
-    if (reveal) choiceResult(right, res.first === uid ? `You claimed land for ${L.TEAMS[team]}. ${esc(q.ref)}.` : esc(q.ref) + '.', `It was ${esc(opts[right])}. ${esc(q.ref)}.`);
-    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">Answer in · waiting for the others</div>`]);
+    if (reveal) choiceResult(right, res.first === uid ? t('claimedLand', { team: teamName(team), ref: esc(q.ref) }) : esc(q.ref) + '.', t('itWas', { a: esc(opts[right]), ref: esc(q.ref) }));
+    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
   }
 
   if (rd.game === 'fv') {
-    const v = VERSES[item], [start] = G.verseHalves(v), opts = G.options('fv', item, data), right = G.correctOption('fv', item, data);
-    secs.push(['team', `<div class="team jf c-${team}"><span class="team-n">${L.TEAMS[team]}</span>${reveal ? `<span class="small">${det}</span>` : timer(rd.endsAt, 'tpill')}</div>`]);
+    const v = C().VERSES[item], [start] = G.verseHalves(v), opts = G.options('fv', item, data), right = G.correctOption('fv', item, data);
+    secs.push(['team', `<div class="team jf c-${team}"><span class="team-n">${teamName(team)}</span>${reveal ? `<span class="small">${det}</span>` : timer(rd.endsAt, 'tpill')}</div>`]);
     secs.push(['q', `<div class="card col" style="gap:6px"><span class="lbl">${esc(v.ref)}</span><span class="verse">${esc(start)} …</span></div>`]);
     secs.push(['opts', optButtons(opts, picked, right, reveal, false, true)]);
-    if (reveal) choiceResult(right, `Points for ${L.TEAMS[team]}.`, `It ends: ${esc(opts[right])}`);
-    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">Answer in · waiting for the others</div>`]);
+    if (reveal) choiceResult(right, t('pointsFor', { team: teamName(team) }), t('itEnds', { a: esc(opts[right]) }));
+    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
   }
 
   if (rd.game === 'tt') {
-    const x = TWO_TRUTHS[item], opts = G.options('tt', item, data), right = G.correctOption('tt', item, data);
-    secs.push(['h', head(esc(x.who), `Spot the lie · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
+    const x = C().TWO_TRUTHS[item], opts = G.options('tt', item, data), right = G.correctOption('tt', item, data);
+    secs.push(['h', head(esc(x.who), t('spotLie', { d: det }), reveal ? null : rd.endsAt, 'tpill')]);
     secs.push(['opts', optButtons(opts, picked, right, reveal, true)]);
-    if (reveal) choiceResult(right, `${typeof mine.at === 'number' ? 'Your time ' + L.fmtSecs(Math.max(0, mine.at - rd.startedAt)) + '. ' : ''}${esc(x.lie[1])}`, `${LETTERS[right]} was the lie. ${esc(x.lie[1])}`);
-    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">Vote in · you can change it until the reveal</div>`]);
-    else secs.push(['n', `<span class="lbl">Tap the lie · your vote is secret</span>`]);
+    if (reveal) choiceResult(right, `${typeof mine.at === 'number' ? t('yourTime', { t: fmtT(Math.max(0, mine.at - rd.startedAt)) }) : ''}${esc(x.lie[1])}`, t('lieWas', { l: LETTERS[right], x: esc(x.lie[1]) }));
+    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('voteIn')}</div>`]);
+    else secs.push(['n', `<span class="lbl">${t('tapLie')}</span>`]);
   }
 
   if (rd.game === 'tl') {
     const right = G.correctOption('tl', item, data), anchors = data.anchors;
-    secs.push(['h', head('Where does it go?', `${esc(g.name)} · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
-    secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">Your card</span><span class="title md">${esc(TIMELINE[item][0])}</span>${reveal ? `<span class="det small muted">${esc(TIMELINE[item][1])}</span>` : ''}</div>`]);
+    secs.push(['h', head(t('whereGo'), `${esc(gName(g))} · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
+    secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">${t('yourCard')}</span><span class="title md">${esc(C().TIMELINE[item][0])}</span>${reveal ? `<span class="det small muted">${esc(C().TIMELINE[item][1])}</span>` : ''}</div>`]);
     if (reveal) {
       secs.push(['line', timelineLine(anchors, item, right, false)]);
-      choiceResult(right, `Gap ${right + 1}.`, `It goes in gap ${right + 1}.`);
+      choiceResult(right, t('gapN', { g: right + 1 }), t('goesGap', { g: right + 1 }));
     } else {
       const rows = [];
       anchors.forEach((ix, k) => {
-        rows.push(`<button class="gapbtn ${picked === k ? 'is-sel' : ''}" data-act="answer" data-i="${k}" ${picked !== null ? 'disabled' : ''} aria-pressed="${picked === k}">${picked === k ? 'Your answer' : 'Place here'}</button>`);
-        rows.push(`<div class="ev"><span class="ev-n">${esc(TIMELINE[ix][0])}</span><span class="ev-r">${esc(TIMELINE[ix][1])}</span></div>`);
+        rows.push(`<button class="gapbtn ${picked === k ? 'is-sel' : ''}" data-act="answer" data-i="${k}" ${picked !== null ? 'disabled' : ''} aria-pressed="${picked === k}">${picked === k ? t('yourAnswer') : t('placeHere')}</button>`);
+        rows.push(`<div class="ev"><span class="ev-n">${esc(C().TIMELINE[ix][0])}</span><span class="ev-r">${esc(C().TIMELINE[ix][1])}</span></div>`);
       });
       const k = anchors.length;
-      rows.push(`<button class="gapbtn ${picked === k ? 'is-sel' : ''}" data-act="answer" data-i="${k}" ${picked !== null ? 'disabled' : ''} aria-pressed="${picked === k}">${picked === k ? 'Your answer' : 'Place here'}</button>`);
+      rows.push(`<button class="gapbtn ${picked === k ? 'is-sel' : ''}" data-act="answer" data-i="${k}" ${picked !== null ? 'disabled' : ''} aria-pressed="${picked === k}">${picked === k ? t('yourAnswer') : t('placeHere')}</button>`);
       secs.push(['line', `<div class="col tline" style="gap:5px">${rows.join('')}</div>`]);
-      if (picked !== null) secs.push(['n', `<div class="pill" role="status">Answer in · waiting for the others</div>`]);
+      if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
     }
   }
 
   if (rd.game === 'hg') {
-    const [word, cat] = HANGMAN[item];
+    const [word, cat] = C().HANGMAN[item];
     const gs = loc.guessed || mine.g || '';
     const wrong = G.hangWrong(word, gs), solved = !!mine.ok || G.hangSolved(word, gs), out = !solved && (mine.out || wrong >= G.MAX_WRONG);
-    secs.push(['h', head(esc(g.name), det, reveal ? null : rd.endsAt, 'tpill')]);
+    secs.push(['h', head(esc(gName(g)), det, reveal ? null : rd.endsAt, 'tpill')]);
     secs.push(['word', `<div class="card col" style="gap:12px;align-items:center"><span class="cat-badge">${esc(cat)}</span>${hangSlots(word, gs, reveal || out, true)}${lives(Math.min(wrong, G.MAX_WRONG))}</div>`]);
-    if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${L.ordinal(res.order.indexOf(uid) + 1)}`, `Solved in ${L.fmtSecs(mine.ms || 0)}.`) : note(false, 'No points this round', `The answer was ${esc(word)}.`)]);
-    else if (solved) secs.push(['n', note(true, `Solved · ${L.fmtSecs(mine.ms || loc.ms)}`, 'Watch the table.')]);
-    else if (out) secs.push(['n', note(false, 'Out of lives', `It was ${esc(word)}.`)]);
+    if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('solvedIn', { t: fmtT(mine.ms || 0) })) : note(false, t('noPoints'), t('answerWasW', { w: esc(word) }))]);
+    else if (solved) secs.push(['n', note(true, t('solvedT', { t: fmtT(mine.ms || loc.ms) }), t('watchTable'))]);
+    else if (out) secs.push(['n', note(false, t('outOfLives'), t('itWasW', { w: esc(word) }))]);
     if (!reveal && !solved && !out) {
-      const keys = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('').map((c) => {
-        const used = gs.includes(c), hit = used && word.includes(c);
-        return `<button class="hkey ${used ? (hit ? 'hit' : 'miss') : ''}" data-act="letter" data-c="${c}" ${used ? 'disabled' : ''} aria-label="${c}${used ? (hit ? ', in the word' : ', not in the word') : ''}">${c}</button>`;
+      const used = G.hangGuessList(gs), letters = G.hangTokens(word).flat(), knKeys = G.isKannada(word);
+      const keys = G.hangKeys(item).map((c) => {
+        const u = used.includes(c), hit = u && letters.includes(c);
+        return `<button class="hkey ${u ? (hit ? 'hit' : 'miss') : ''}" data-act="letter" data-c="${esc(c)}" ${u ? 'disabled' : ''} aria-label="${esc(c)}${u ? (hit ? t('inWord') : t('notInWord')) : ''}">${esc(c)}</button>`;
       }).join('');
-      secs.push(['keys', `<div class="grow"></div><div class="hkeys">${keys}</div>`]);
+      secs.push(['keys', `<div class="grow"></div><div class="hkeys ${knKeys ? 'hkeys-kn' : ''}">${keys}</div>`]);
     }
   }
 
   if (rd.game === 'bk') {
     const inPlace = G.booksInPlace(data, loc.arr);
     if (!reveal) {
-      secs.push(['h', head('Bible order', `${esc(g.name)} · ${det}`, rd.endsAt, 'tpill')]);
-      secs.push(['lbl', `<span class="lbl">${loc.done ? 'Locked in' : 'Drag a book, or tap two to swap'}</span>`]);
-      secs.push(['books', `<div class="col bklist" style="gap:8px">${loc.arr.map((p, i) => `<div class="bk c-${esc(me.color || 'amethyst')} ${loc.sel === i ? 'is-sel' : ''} ${loc.done ? 'is-done' : ''}" data-bk="${i}" role="button" tabindex="0" aria-label="${esc(BOOKS[data.set[data.order[p]]])}, position ${i + 1}">${markers(i)}<span class="grow">${esc(BOOKS[data.set[data.order[p]]])}</span><svg class="grip" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 9h14M5 15h14"></path></svg></div>`).join('')}</div>`]);
-      if (loc.done) secs.push(['n', note(true, `All six in order · ${L.fmtSecs(loc.ms)}`, 'Watch the table.')]);
-      else if (loc.bkMiss !== null) secs.push(['n', note(false, `${loc.bkMiss} of 6 in place`, 'Plus 3 seconds. Keep going and check again.')]);
-      if (!loc.done) secs.push(['chk', `<div class="grow"></div><button class="btn btn-p" data-act="bkCheck">Check my order</button>`]);
+      secs.push(['h', head(t('bibleOrder'), `${esc(gName(g))} · ${det}`, rd.endsAt, 'tpill')]);
+      secs.push(['lbl', `<span class="lbl">${loc.done ? t('lockedIn') : t('dragOrTap')}</span>`]);
+      secs.push(['books', `<div class="col bklist" style="gap:8px">${loc.arr.map((p, i) => `<div class="bk c-${esc(me.color || 'amethyst')} ${loc.sel === i ? 'is-sel' : ''} ${loc.done ? 'is-done' : ''}" data-bk="${i}" role="button" tabindex="0" aria-label="${esc(t('position', { b: C().BOOKS[data.set[data.order[p]]], i: i + 1 }))}">${markers(i)}<span class="grow">${esc(C().BOOKS[data.set[data.order[p]]])}</span><svg class="grip" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M5 9h14M5 15h14"></path></svg></div>`).join('')}</div>`]);
+      if (loc.done) secs.push(['n', note(true, t('allSix', { t: fmtT(loc.ms) }), t('watchTable'))]);
+      else if (loc.bkMiss !== null) secs.push(['n', note(false, t('nInPlace', { n: loc.bkMiss }), t('plus3b'))]);
+      if (!loc.done) secs.push(['chk', `<div class="grow"></div><button class="btn btn-p" data-act="bkCheck">${t('checkOrder')}</button>`]);
     } else {
-      secs.push(['h', head('Round over', `${esc(g.name)} · ${det}`)]);
-      secs.push(['n', myPts ? note(true, `+${myPts} · ${L.ordinal(res.order.indexOf(uid) + 1)}`, `You finished in ${L.fmtSecs(mine.ms || loc.ms)}.`) : note(false, 'No points this round', `${inPlace} of 6 were in place.`)]);
-      secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">Bible order</span>${data.set.map((b, i) => `<span class="li-name">${L.roman(i + 1)}. ${esc(BOOKS[b])}</span>`).join('')}</div>`]);
+      secs.push(['h', head(t('roundOver'), `${esc(gName(g))} · ${det}`)]);
+      secs.push(['n', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('finishedIn', { t: fmtT(mine.ms || loc.ms) })) : note(false, t('noPoints'), t('wereInPlace', { n: inPlace }))]);
+      secs.push(['card', `<div class="card col" style="gap:4px"><span class="lbl">${t('bibleOrder')}</span>${data.set.map((b, i) => `<span class="li-name">${L.roman(i + 1)}. ${esc(C().BOOKS[b])}</span>`).join('')}</div>`]);
     }
   }
 
   if (rd.game === 'em') {
-    const e = EMOJI[item];
+    const e = C().EMOJI[item];
     if (!reveal) {
-      secs.push(['h', head(esc(g.name), det, rd.endsAt, 'tpill')]);
-      secs.push(['e', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="lbl">Which Bible story?</span><span class="emoji" role="img" aria-label="Emoji clue">${e.e}</span></div>`]);
+      secs.push(['h', head(esc(gName(g)), det, rd.endsAt, 'tpill')]);
+      secs.push(['e', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="lbl">${t('whichStory')}</span><span class="emoji" role="img" aria-label="${t('emojiClue')}">${e.e}</span></div>`]);
       if (loc.done || mine.ok) {
         const place = L.scoreEmoji(ans).order.indexOf(uid);
-        secs.push(['form-done', note(true, `You got it · ${L.ordinal(place + 1)}`, 'Wait for the others or the timer.')]);
+        secs.push(['form-done', note(true, t('gotIt', { o: ord(place + 1) }), t('waitOthers'))]);
       } else {
-        secs.push(['form', `<form class="col" style="gap:10px" data-form="guess"><label class="lbl" for="guess">Your answer</label><div class="row" style="gap:10px"><input id="guess" class="field" data-draft="guess" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="send"><button class="btn btn-p btn-fit" type="submit">Guess</button></div></form>`]);
-        secs.push(['n', loc.guessWrong ? note(false, 'Not it', 'Try again. Spelling close enough counts if the key name is right.') : '']);
+        secs.push(['form', `<form class="col" style="gap:10px" data-form="guess"><label class="lbl" for="guess">${t('yourAnswer')}</label><div class="row" style="gap:10px"><input id="guess" class="field" data-draft="guess" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="send"><button class="btn btn-p btn-fit" type="submit">${t('guessB')}</button></div></form>`]);
+        secs.push(['n', loc.guessWrong ? note(false, t('notIt'), t('tryAgainSpell')) : '']);
       }
     } else {
-      secs.push(['h', head('Round over', `${esc(g.name)} · ${det}`)]);
+      secs.push(['h', head(t('roundOver'), `${esc(gName(g))} · ${det}`)]);
       secs.push(['e', `<div class="card col" style="align-items:center;text-align:center;gap:6px"><span class="emoji" aria-hidden="true">${e.e}</span><span class="title md">${esc(e.a)}</span><span class="det small muted">${esc(e.ref)}</span></div>`]);
-      secs.push(['you', myPts ? note(true, `+${myPts} · ${L.ordinal(res.order.indexOf(uid) + 1)}`, '') : note(false, 'No points this round', '')]);
+      secs.push(['you', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, '') : note(false, t('noPoints'), '')]);
     }
   }
   return { cls: '', secs };
@@ -629,52 +652,53 @@ function playerResults() {
   return {
     cls: '',
     secs: [
-      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">You finished</span><span class="big">${idx >= 0 ? L.ordinal(idx + 1) : '–'}</span><span class="title sm">${me.score} points</span></div>`],
-      ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">Points</span></div><div class="stat"><span class="stat-v">${me.correct || 0}</span><span class="stat-l">Rounds scored</span></div><div class="stat"><span class="stat-v">${rows.length}</span><span class="stat-l">Players</span></div></div>`],
-      ['wait', `<p class="small muted center" style="margin:0;text-align:center">The host can start another game. Stay here to play again.</p><button class="btn btn-s" data-act="leave">Leave room</button>`]
+      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">${t('youFinished')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span><span class="title sm">${t('nPoints', { n: me.score })}</span></div>`],
+      ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">${t('points')}</span></div><div class="stat"><span class="stat-v">${me.correct || 0}</span><span class="stat-l">${t('roundsScored')}</span></div><div class="stat"><span class="stat-v">${rows.length}</span><span class="stat-l">${t('playersL')}</span></div></div>`],
+      ['wait', `<p class="small muted center" style="margin:0;text-align:center">${t('hostCanStart')}</p><button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`]
     ]
   };
 }
 
 /* ----- Sheets ----- */
 function sheetWrap(inner) {
-  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${inner}<button class="btn btn-s" data-act="closeSheet">Close</button></div></div>`;
+  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${inner}<button class="btn btn-s" data-act="closeSheet">${t('close')}</button></div></div>`;
 }
 function sheetMenu() {
   const inRoom = S.view === 'room' && S.room && S.room.meta;
   const chips = (act, cur, vals) => `<div class="seg">${vals.map(([v, l]) => `<button class="chip ${cur === v ? 'on' : ''}" data-act="${act}" data-v="${v}" aria-pressed="${cur === v}">${l}</button>`).join('')}</div>`;
   let roomNote = '', roomBtn = '';
   if (inRoom && S.role === 'host') {
-    roomNote = '<p class="small muted" style="margin:0">Your theme shows on every phone in this room.</p>';
-    roomBtn = `<button class="btn btn-s" data-act="closeRoom">${Date.now() - S.confirmClose < 4000 ? 'Tap again to close the room' : 'Close room'}</button>`;
+    roomNote = `<p class="small muted" style="margin:0">${t('themeNoteHost')}</p>`;
+    roomBtn = `<button class="btn btn-s" data-act="closeRoom">${Date.now() - S.confirmClose < 4000 ? t('tapClose') : t('closeRoom')}</button>`;
   } else if (inRoom) {
-    roomNote = `<p class="small muted" style="margin:0">While you're in a room, the host's theme is shown. Your choice applies outside rooms.</p>`;
-    roomBtn = '<button class="btn btn-s" data-act="leave">Leave room</button>';
+    roomNote = `<p class="small muted" style="margin:0">${t('themeNotePlayer')}</p>`;
+    roomBtn = `<button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`;
   }
-  return sheetWrap(`<h2 class="title md" id="sheetTitle" tabindex="-1">Settings</h2>
-    <div class="col" style="gap:10px"><span class="lbl">Theme</span>${chips('theme', S.prefs.theme, [['cyber', 'Cyberpunk'], ['glass', 'Stained Glass']])}${roomNote}</div>
-    <div class="col" style="gap:10px"><span class="lbl">Light or dark</span>${chips('mode', S.prefs.mode, [['auto', 'Auto'], ['light', 'Light'], ['dark', 'Dark']])}</div>
+  return sheetWrap(`<h2 class="title md" id="sheetTitle" tabindex="-1">${t('settings')}</h2>
+    <div class="col" style="gap:10px"><span class="lbl">${t('language')}</span>${chips('lang', getLang(), [['en', 'English'], ['kn', 'ಕನ್ನಡ']])}<p class="small muted" style="margin:0">${t('langNote')}</p></div>
+    <div class="col" style="gap:10px"><span class="lbl">${t('theme')}</span>${chips('theme', S.prefs.theme, [['cyber', t('cyber')], ['glass', t('glass')]])}${roomNote}</div>
+    <div class="col" style="gap:10px"><span class="lbl">${t('lightDark')}</span>${chips('mode', S.prefs.mode, [['auto', t('auto')], ['light', t('light')], ['dark', t('dark')]])}</div>
     ${roomBtn}
-    <button class="linkbtn" data-act="about">© 2026 Anderson Jones · About</button>`);
+    <button class="linkbtn" data-act="about">${t('aboutLink')}</button>`);
 }
 function sheetAbout() {
   return sheetWrap(`<h2 class="title md center" id="sheetTitle" tabindex="-1">Upper Room</h2>
     <div class="col center" style="gap:8px;text-align:center">
-      <span class="small muted">Version ${APP_VERSION}</span>
+      <span class="small muted">${t('version', { v: APP_VERSION })}</span>
       <span>Designed by Anderson Jones</span>
       <span class="small">© 2026 Anderson Jones. All rights reserved.</span>
-      <span class="small muted">Scripture quotations from the King James Version (public domain).</span>
-      <a class="linkbtn" href="mailto:andy.andersonjones@gmail.com?subject=Upper%20Room%20feedback">Send feedback: andy.andersonjones@gmail.com</a>
+      <span class="small muted">${t('scriptureNote')}</span>
+      <a class="linkbtn" href="mailto:andy.andersonjones@gmail.com?subject=Upper%20Room%20feedback">${t('sendFeedback')}</a>
     </div>`);
 }
 function joinUrl() { return location.origin + location.pathname + '?join=' + S.code; }
 function sheetQr() {
   let svg = '';
-  try { svg = qrSvg(joinUrl(), { label: 'QR code to join room ' + S.code }); } catch { svg = ''; }
-  return sheetWrap(`<h2 class="title md center" id="sheetTitle" tabindex="-1">Scan to join</h2>
+  try { svg = qrSvg(joinUrl(), { label: t('qrLabel', { c: S.code }) }); } catch { svg = ''; }
+  return sheetWrap(`<h2 class="title md center" id="sheetTitle" tabindex="-1">${t('scanToJoin')}</h2>
     <div class="qr-frame">${svg}</div>
-    <div class="col" style="align-items:center;gap:4px"><span class="lbl">Room code</span><span class="code">${esc(S.code)}</span><span class="small muted" style="word-break:break-all;text-align:center">${esc(joinUrl())}</span></div>
-    <button class="btn btn-p" data-act="share">Share invite</button>`);
+    <div class="col" style="align-items:center;gap:4px"><span class="lbl">${t('roomCode')}</span><span class="code">${esc(S.code)}</span><span class="small muted" style="word-break:break-all;text-align:center">${esc(joinUrl())}</span></div>
+    <button class="btn btn-p" data-act="share">${t('shareInvite')}</button>`);
 }
 
 /* =================== Network & rooms =================== */
@@ -688,7 +712,7 @@ async function ensureNet() {
     return S.net;
   } catch (e) {
     console.error(e);
-    S.netErr = navigator.onLine === false ? "You're offline. Hosting and joining need the internet." : "Can't reach the game server. Check your internet and try again.";
+    S.netErr = navigator.onLine === false ? t('offlineErr') : t('serverErr');
     throw e;
   } finally { S.netBusy = false; paint(); }
 }
@@ -724,22 +748,22 @@ async function startHost() {
     const meta = { host: S.net.uid, created: Date.now(), status: 'lobby', game: 'vs', theme: S.prefs.theme, v: 1 };
     try {
       if (await S.net.create(`rooms/${code}/meta`, meta)) { enterRoom(code, 'host'); return; }
-    } catch (e) { console.error(e); S.netErr = "Couldn't create a room. Check the database rules are published."; paint(); return; }
+    } catch (e) { console.error(e); S.netErr = t('createErr'); paint(); return; }
   }
-  S.netErr = "Couldn't find a free room code. Try again."; paint();
+  S.netErr = t('noFreeCode'); paint();
 }
 
 async function doJoin() {
   const code = L.cleanCode(S.drafts.code);
   const name = String(S.drafts.name || '').trim().slice(0, 16);
   S.joinErr = '';
-  if (code.length !== 4) { S.joinErr = 'Room codes have four letters.'; paint(); return; }
-  if (!name) { S.joinErr = 'Type your name so others know who you are.'; paint(); return; }
+  if (code.length !== 4) { S.joinErr = t('codeFour'); paint(); return; }
+  if (!name) { S.joinErr = t('needName'); paint(); return; }
   S.busy = true; paint();
   try {
     await ensureNet();
     const meta = await S.net.get(`rooms/${code}/meta`);
-    if (!meta) { S.joinErr = `No room with code ${code}. Check the host's screen.`; return; }
+    if (!meta) { S.joinErr = t('noRoom', { c: code }); return; }
     S.profile = { name, color: S.profile.color || 'amethyst' }; save('ur.profile', S.profile);
     const existing = await S.net.get(`rooms/${code}/players/${S.net.uid}`);
     if (existing) await S.net.update(`rooms/${code}/players/${S.net.uid}`, { name, color: S.profile.color, online: true });
@@ -750,12 +774,12 @@ async function doJoin() {
     enterRoom(code, 'player');
   } catch (e) {
     console.error(e);
-    if (!S.joinErr) S.joinErr = S.netErr || "Couldn't join. Check your internet and try again.";
+    if (!S.joinErr) S.joinErr = S.netErr || t('joinFail');
   } finally { S.busy = false; paint(); }
 }
 
 const roomPath = () => 'rooms/' + S.code;
-const write = (p) => p.catch((e) => { console.error(e); toast("Couldn't reach the game server. Trying again may help."); });
+const write = (p) => p.catch((e) => { console.error(e); toast(t('writeErr')); });
 
 /* ----- Host game control ----- */
 const contentLength = G.contentLength;
@@ -816,7 +840,7 @@ const hostResultsWrite = () => S.net.update(roomPath(), { 'meta/status': 'result
 async function hostStep(fn) {
   if (S.hostBusy) return;
   S.hostBusy = true;
-  try { await fn(); } catch (e) { console.error(e); toast("Couldn't reach the game server."); } finally { S.hostBusy = false; }
+  try { await fn(); } catch (e) { console.error(e); toast(t('hostErr')); } finally { S.hostBusy = false; }
 }
 function hostTick() {
   const r = S.room;
@@ -857,7 +881,7 @@ function botsPlay(rd, now) {
       write(S.net.set(`${roomPath()}/answers/${rd.i}/${p.uid}`, val));
     };
     if (rd.game === 'vs') {
-      const n = VERSES[item].parts.length;
+      const n = C().VERSES[item].parts.length;
       if (elapsed >= plan.at / 2) send('half', { placed: Math.max(1, Math.floor(n / 2)), ok: false });
       if (plan.ok && elapsed >= plan.at) send('done', { placed: n, ok: true, ms: plan.at });
     } else if (G.CHOICE.includes(rd.game)) {
@@ -866,10 +890,11 @@ function botsPlay(rd, now) {
       if (elapsed >= plan.at / 2) send('half', { ok: false, checks: 1 });
       if (plan.ok && elapsed >= plan.at) send('done', { ok: true, ms: plan.at, checks: 2 });
     } else if (rd.game === 'hg') {
-      const word = G.hangWord(item);
-      const letters = [...new Set(word.replace(/ /g, '').split(''))];
-      if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, Math.ceil(letters.length / 2)).join('') });
-      if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, G.MAX_WRONG), out: true });
+      // Bots play the English word and report progress as numbers, which every phone can show.
+      const word = G.hangWord(item, content('en'));
+      const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
+      if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
+      if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, G.MAX_WRONG), f: 1, t: n, w: G.MAX_WRONG, out: true });
     } else if (plan.ok && elapsed >= plan.at) send('ok', { ok: true, at: S.net.TS, tries: 1 });
   });
 }
@@ -878,7 +903,7 @@ setInterval(hostTick, 300);
 /* ----- Player answers ----- */
 const myAnsPath = () => `${roomPath()}/answers/${S.room.round.i}/${S.net.uid}`;
 function placePiece(pi) {
-  const rd = S.room.round, loc = ensureLocal(rd), n = VERSES[rd.seq[rd.i]].parts.length;
+  const rd = S.room.round, loc = ensureLocal(rd), n = C().VERSES[rd.seq[rd.i]].parts.length;
   if (loc.done || loc.placed.includes(pi) || rd.phase !== 'play') return;
   loc.placed.push(pi);
   if (loc.placed.length === n) {
@@ -907,7 +932,7 @@ function submitGuess() {
   const loc = ensureLocal(rd), guess = S.drafts.guess || '';
   if (!guess.trim() || loc.done) return;
   loc.tries++;
-  if (L.emojiMatches(guess, EMOJI[rd.seq[rd.i]].keys)) {
+  if (L.emojiMatches(guess, C().EMOJI[rd.seq[rd.i]].keys)) {
     loc.done = true; loc.guessWrong = false; vibrate(40);
     const el = document.getElementById('guess'); if (el) el.blur();
     write(S.net.set(myAnsPath(), { ok: true, at: S.net.TS, tries: loc.tries }));
@@ -918,11 +943,14 @@ function guessLetter(c) {
   const rd = S.room.round;
   if (!rd || rd.game !== 'hg' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
   const loc = ensureLocal(rd), word = G.hangWord(rd.seq[rd.i]);
-  if (loc.done || loc.guessed.includes(c) || G.hangWrong(word, loc.guessed) >= G.MAX_WRONG) return;
-  loc.guessed += c;
-  const val = { g: loc.guessed };
+  const list = G.hangGuessList(loc.guessed);
+  if (loc.done || list.includes(c) || G.hangWrong(word, loc.guessed) >= G.MAX_WRONG) return;
+  loc.guessed = G.hangGuessJoin([...list, c]);
+  const wrong = G.hangWrong(word, loc.guessed);
+  // f/t/w let the table show progress even when it shows the word in another language.
+  const val = { g: loc.guessed, f: G.hangFound(word, loc.guessed), t: G.hangLetters(word), w: wrong };
   if (G.hangSolved(word, loc.guessed)) { loc.done = true; loc.ms = Math.max(0, S.net.now() - rd.startedAt); val.ok = true; val.ms = loc.ms; vibrate(40); }
-  else if (!word.includes(c)) { vibrate([20, 40, 20]); if (G.hangWrong(word, loc.guessed) >= G.MAX_WRONG) val.out = true; }
+  else if (!G.hangTokens(word).flat().includes(c)) { vibrate([20, 40, 20]); if (wrong >= G.MAX_WRONG) val.out = true; }
   write(S.net.set(myAnsPath(), val));
   paint();
 }
@@ -1009,7 +1037,7 @@ const A = {
   qr: () => { S.sheet = 'qr'; },
   about: () => { S.sheet = 'about'; },
   share: async () => {
-    const url = joinUrl(), text = `Join my Upper Room game. Code: ${S.code}`;
+    const url = joinUrl(), text = t('shareText', { c: S.code });
     if (navigator.share) { try { await navigator.share({ title: 'Upper Room', text, url }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank', 'noopener');
   },
@@ -1024,6 +1052,7 @@ const A = {
     if (S.role === 'host' && S.room && S.room.meta) write(S.net.update(roomPath() + '/meta', { theme: S.prefs.theme }));
   },
   mode: (el) => { S.prefs.mode = el.dataset.v; save('ur.prefs', S.prefs); },
+  lang: (el) => { setLang(el.dataset.v); S.local = null; applyTheme(); },
   pick: (el) => write(S.net.update(roomPath() + '/meta', { game: el.dataset.g })),
   set: (el) => { const g = S.room.meta.game || 'vs'; write(S.net.update(`${roomPath()}/meta/settings/${g}`, { ...settingsFor(g), [el.dataset.k]: Number(el.dataset.v) })); },
   shuffleTeams: () => {
