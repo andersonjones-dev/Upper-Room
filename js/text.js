@@ -3,7 +3,7 @@
 import * as EN from './content.js';
 import { KN_VERSES } from './kn/verses.js';
 import { KN_BOOKS, KN_TRIBES, KN_TRIVIA, KN_EMOJI, KN_HANGMAN, KN_TWO_TRUTHS, KN_TIMELINE } from './kn/content.js';
-import { getLang, CAT_KN } from './i18n.js';
+import { getLang, getVerseLang, CAT_KN } from './i18n.js';
 
 const ALIAS = { Psalm: 'Psalms', 'Song of Songs': 'Song of Solomon' };
 /** "Judges 14:6" -> "ನ್ಯಾಯಸ್ಥಾಪಕರು 14:6". Anything it can't read is returned unchanged. */
@@ -35,7 +35,14 @@ function buildKn() {
   };
 }
 /** All game content for a language ('en' or 'kn'); defaults to this phone's language. */
-export function content(lang = getLang()) {
-  if (lang !== 'kn') return EN;
-  return kn || (kn = buildKn());
+const knAll = () => kn || (kn = buildKn());
+const mixed = {};
+/** All game content for a language ('en' or 'kn'). With no argument: this phone's language, with
+ *  the verses in the phone's Bible-verse language (which can differ from the interface). */
+export function content(lang) {
+  if (lang) return lang === 'kn' ? knAll() : EN;
+  const base = getLang() === 'kn' ? 'kn' : 'en', verses = getVerseLang() === 'kn' ? 'kn' : 'en';
+  if (base === verses) return content(base);
+  const key = base + verses;
+  return mixed[key] || (mixed[key] = { ...content(base), VERSES: content(verses).VERSES });
 }

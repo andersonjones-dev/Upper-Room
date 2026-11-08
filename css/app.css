@@ -433,3 +433,13 @@ html:lang(kn) .lbl { text-transform: none; }
   html:lang(kn) .sub { font-size: 15px; }
   html:lang(kn) .sub { line-height: 1.4; }
 }
+
+/* Kannada verses on an English phone (Settings → Bible verses) */
+html[data-vlang="kn"] :is(.verse, .piece, .zone, .opt-t.long) { letter-spacing: 0 !important; line-height: 1.5; text-transform: none; }
+
+/* Points-by-round strip on the final results (1.5) */
+.strip { display: flex; align-items: flex-end; gap: 3px; height: 16px; }
+.strip .rc { flex: 1 1 0; max-width: 26px; height: var(--h); min-height: 2px; background: var(--color-text-muted); opacity: .55; border-radius: 2px; }
+.strip .rc.first { background: var(--color-primary); opacity: 1; }
+.strip .rc.skip { opacity: .15; }
+.card .strip { height: 22px; }

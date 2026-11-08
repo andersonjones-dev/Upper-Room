@@ -8,8 +8,8 @@
   --color-bg: #EEEDE8; --color-surface: #FFFFFF; --color-text: #0A0A0F; --color-text-muted: #4A4A58;
   --color-border: #807E78; --color-primary: #0A0A0F; --color-secondary: #C4004A; --color-tertiary: #006E7A;
   --color-on-primary: #F5E50A; --color-danger: #C4004A;
-  --font-display: 'Chakra Petch', system-ui, -apple-system, sans-serif;
-  --font-body: 'Chakra Petch', system-ui, -apple-system, sans-serif;
+  --font-display: 'Chakra Petch', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
+  --font-body: 'Chakra Petch', 'Noto Sans Kannada', system-ui, -apple-system, sans-serif;
   --space-1: 4px; --space-2: 6px; --space-3: 10px; --space-4: 12px; --space-5: 16px; --space-6: 18px; --space-7: 20px; --space-8: 30px;
   --radius-sm: 0px; --radius-md: 0px; --radius-lg: 0px; --radius-pill: 0px;
   --shadow-1: none; --shadow-2: none; --icon-stroke: 1.8px; --icon-linecap: square;
@@ -28,8 +28,8 @@
   --color-bg: #F4EFE6; --color-surface: #FFFDF8; --color-text: #241C3F; --color-text-muted: #625A7C;
   --color-border: #241C3F; --color-primary: #B07A12; --color-secondary: #2E5FBF; --color-tertiary: #A62C41;
   --color-quaternary: #2B8A60; --color-on-primary: #FFFDF8; --color-danger: #B3261E;
-  --font-display: 'Cinzel', Georgia, 'Times New Roman', serif;
-  --font-body: 'Crimson Pro', Georgia, 'Times New Roman', serif;
+  --font-display: 'Cinzel', 'Noto Sans Kannada', Georgia, 'Times New Roman', serif;
+  --font-body: 'Crimson Pro', 'Noto Sans Kannada', Georgia, 'Times New Roman', serif;
   --space-1: 4px; --space-2: 8px; --space-3: 10px; --space-4: 14px; --space-5: 20px; --space-6: 22px; --space-7: 28px; --space-8: 36px;
   --radius-sm: 4px; --radius-md: 16px; --radius-lg: 103px 103px 6px 6px; --radius-pill: 999px;
   --shadow-1: 0 0 44px rgba(232, 176, 75, .35); --shadow-2: none; --icon-stroke: 2px; --icon-linecap: round;

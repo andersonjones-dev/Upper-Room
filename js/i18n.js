@@ -63,6 +63,10 @@ export const STR = {
     version: 'Version {v}', scriptureNote: 'English scripture is from the King James Version (public domain). Kannada scripture is from the Kannada Bible (ಸತ್ಯವೇದವು).',
     sendFeedback: 'Send feedback: andy.andersonjones@gmail.com', scanToJoin: 'Scan to join', qrLabel: 'QR code to join room {c}',
     shareText: 'Join my Upper Room game. Code: {c}', newVersion: 'A new version is ready', update: 'Update', updating: 'Updating…', someone: 'Someone',
+    byRound: 'Points by round', nFirsts: '{n} × first', roundsOf: 'scored in {a} of {b}', firsts: 'Firsts',
+    ruleRank: 'Each round: 1st 300 · 2nd 200 · other finishers 100 · not finished 0. Tall bars are first places.',
+    ruleTrivia: 'Each round: first right answer 200 · other right answers 100 · wrong or no answer 0. Tall bars are first places.',
+    bibleVerses: 'Bible verses', sameAsApp: 'Same as app', verseNote: 'Verse Scramble and Finish the Verse show verses in this language.',
     secs: '{n}s', ordinal: '{n}'
   },
   kn: {
@@ -125,6 +129,10 @@ export const STR = {
     version: 'ಆವೃತ್ತಿ {v}', scriptureNote: 'ಕನ್ನಡ ವಚನಗಳು ಸತ್ಯವೇದವು ಪಠ್ಯದಿಂದ. ಇಂಗ್ಲಿಷ್ ವಚನಗಳು King James Version (ಸಾರ್ವಜನಿಕ ಸ್ವತ್ತು).',
     sendFeedback: 'ಪ್ರತಿಕ್ರಿಯೆ ಕಳುಹಿಸಿ: andy.andersonjones@gmail.com', scanToJoin: 'ಸೇರಲು ಸ್ಕ್ಯಾನ್ ಮಾಡಿ', qrLabel: 'ರೂಮ್ {c}ಗೆ ಸೇರಲು QR ಕೋಡ್',
     shareText: 'ನನ್ನ Upper Room ಆಟಕ್ಕೆ ಸೇರಿ. ಕೋಡ್: {c}', newVersion: 'ಹೊಸ ಆವೃತ್ತಿ ಸಿದ್ಧವಿದೆ', update: 'ಅಪ್‌ಡೇಟ್', updating: 'ಅಪ್‌ಡೇಟ್ ಆಗುತ್ತಿದೆ…', someone: 'ಯಾರೋ',
+    byRound: 'ಸುತ್ತುವಾರು ಅಂಕಗಳು', nFirsts: '{n} ಬಾರಿ ಮೊದಲು', roundsOf: '{b}ರಲ್ಲಿ {a} ಸುತ್ತುಗಳಲ್ಲಿ ಅಂಕ', firsts: 'ಮೊದಲ ಸ್ಥಾನ',
+    ruleRank: 'ಪ್ರತಿ ಸುತ್ತು: 1ನೇ 300 · 2ನೇ 200 · ಮುಗಿಸಿದ ಇತರರು 100 · ಮುಗಿಸದಿದ್ದರೆ 0. ಎತ್ತರದ ಕಂಬಿಗಳು ಮೊದಲ ಸ್ಥಾನಗಳು.',
+    ruleTrivia: 'ಪ್ರತಿ ಸುತ್ತು: ಮೊದಲ ಸರಿ ಉತ್ತರ 200 · ಇತರ ಸರಿ ಉತ್ತರಗಳು 100 · ತಪ್ಪು ಅಥವಾ ಉತ್ತರವಿಲ್ಲದಿದ್ದರೆ 0. ಎತ್ತರದ ಕಂಬಿಗಳು ಮೊದಲ ಸ್ಥಾನಗಳು.',
+    bibleVerses: 'ಬೈಬಲ್ ವಚನಗಳು', sameAsApp: 'ಆ್ಯಪ್‌ನಂತೆ', verseNote: 'ವಚನ ಜೋಡಣೆ ಮತ್ತು ವಚನ ಪೂರ್ಣಗೊಳಿಸಿ ಆಟಗಳಲ್ಲಿ ವಚನಗಳು ಈ ಭಾಷೆಯಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.',
     secs: '{n} ಸೆ', ordinal: '{n}ನೇ'
   }
 };
@@ -153,6 +161,16 @@ try { const l = localStorage.getItem('ur.lang'); if (l && STR[l]) lang = l; } ca
 if (typeof document !== 'undefined') document.documentElement.lang = lang;
 
 export const getLang = () => lang;
+
+// Bible verse language, separate from the interface: 'auto' (same as the app), 'en' or 'kn'.
+let versePref = 'auto';
+try { const v = localStorage.getItem('ur.verseLang'); if (v === 'en' || v === 'kn') versePref = v; } catch (e) { /* private mode */ }
+export const getVersePref = () => versePref;
+export const getVerseLang = () => (versePref === 'auto' ? lang : versePref);
+export function setVersePref(v) {
+  versePref = v === 'en' || v === 'kn' ? v : 'auto';
+  try { localStorage.setItem('ur.verseLang', versePref); } catch (e) { /* private mode */ }
+}
 export function setLang(l) {
   if (!STR[l]) return;
   lang = l;

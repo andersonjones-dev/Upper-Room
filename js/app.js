@@ -1,5 +1,5 @@
 import { APP_VERSION, firebaseConfig, DEFAULT_THEME } from './config.js';
-import { t, getLang, setLang, GAME_TEXT, MODE_KN, TEAM_KN, COLOR_KN } from './i18n.js';
+import { t, getLang, setLang, getVersePref, getVerseLang, setVersePref, GAME_TEXT, MODE_KN, TEAM_KN, COLOR_KN } from './i18n.js';
 import { content } from './text.js';
 import * as G from './games.js';
 import * as L from './logic.js';
@@ -57,7 +57,8 @@ function activeTheme() {
   return ['cyber', 'glass'].includes(rt) ? rt : S.prefs.theme;
 }
 function applyTheme() {
-  if (kn() && !document.getElementById('font-kn')) {
+  document.documentElement.dataset.vlang = getVerseLang();
+  if ((kn() || getVerseLang() === 'kn') && !document.getElementById('font-kn')) {
     const l = document.createElement('link');
     l.rel = 'stylesheet'; l.id = 'font-kn';
     l.href = 'https://fonts.googleapis.com/css2?family=Noto+Sans+Kannada:wght@400;500;600;700&display=swap';
@@ -457,6 +458,23 @@ function teamLine(a, b, what) {
   if (a === b) return t('level', { a, b, w: what });
   return t('wins', { team: teamName(a > b ? 'ruby' : 'sapphire'), a: Math.max(a, b), b: Math.min(a, b), w: what });
 }
+/** Points a player won in each round, and how many rounds they were first in. */
+function breakdown(uid, rd) {
+  const hist = rd.hist || {}, n = rd.n || 0, cells = [];
+  let firsts = 0, scored = 0;
+  for (let i = 0; i < n; i++) {
+    const h = hist[i], played = !!h, pts = (h && h.p && h.p[uid]) || 0, first = !!h && h.f === uid;
+    if (first) firsts++;
+    if (pts) scored++;
+    cells.push({ pts, first, played });
+  }
+  return { cells, firsts, scored, played: cells.filter((c) => c.played).length };
+}
+function strip(b) {
+  return `<span class="strip" aria-hidden="true">${b.cells.map((c) => `<span class="rc ${c.first ? 'first' : ''} ${c.played ? '' : 'skip'}" style="--h:${c.first ? 100 : c.pts >= 200 ? 66 : c.pts ? 40 : 12}%"></span>`).join('')}</span>`;
+}
+const ruleLine = (rd) => `<p class="small muted" style="margin:0">${t(['vs', 'bk', 'hg', 'em'].includes(rd.game) ? 'ruleRank' : 'ruleTrivia')}</p>`;
+
 function hostResults() {
   const rows = L.standings(players());
   const rd = S.room.round || {};
@@ -470,7 +488,8 @@ function hostResults() {
     secs: [
       ['h', `<div class="col center"><span class="lbl">${t('tonight')}</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
       ['pod', podiumHtml(rows)],
-      ['board', `<div class="card list">${rows.map((p, i) => `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="li-name grow">${esc(p.name)}</span><span class="li-det strong">${p.score}</span></div>`).join('')}</div>`],
+      ['board', `<div class="card list"><span class="lbl">${t('byRound')}</span>${rows.map((p, i) => { const b = breakdown(p.uid, rd);
+        return `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="col grow" style="gap:3px;min-width:0"><span class="li-name">${esc(p.name)}</span><span class="small muted">${t('nFirsts', { n: b.firsts })} · ${t('roundsOf', { a: b.scored, b: b.played })}</span>${strip(b)}</span><span class="li-det strong">${p.score}</span></div>`; }).join('')}${ruleLine(rd)}</div>`],
       ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="toLobby">${t('anotherGame')}</button><button class="btn btn-p" data-act="again">${t('playAgain')}</button></div>`]
     ]
   };
@@ -649,11 +668,13 @@ function playerResults() {
   const rows = L.standings(players());
   const idx = rows.findIndex((p) => p.uid === S.net.uid);
   const me = rows[idx] || { score: 0, correct: 0 };
+  const rd = S.room.round || {}, b = breakdown(S.net.uid, rd);
   return {
     cls: '',
     secs: [
       ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">${t('youFinished')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span><span class="title sm">${t('nPoints', { n: me.score })}</span></div>`],
-      ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">${t('points')}</span></div><div class="stat"><span class="stat-v">${me.correct || 0}</span><span class="stat-l">${t('roundsScored')}</span></div><div class="stat"><span class="stat-v">${rows.length}</span><span class="stat-l">${t('playersL')}</span></div></div>`],
+      ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">${t('points')}</span></div><div class="stat"><span class="stat-v">${b.firsts}</span><span class="stat-l">${t('firsts')}</span></div><div class="stat"><span class="stat-v">${me.correct || 0}/${b.played}</span><span class="stat-l">${t('roundsScored')}</span></div></div>`],
+      ['strip', `<div class="card col" style="gap:8px"><span class="lbl">${t('byRound')}</span>${strip(b)}${ruleLine(rd)}</div>`],
       ['wait', `<p class="small muted center" style="margin:0;text-align:center">${t('hostCanStart')}</p><button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`]
     ]
   };
@@ -676,6 +697,7 @@ function sheetMenu() {
   }
   return sheetWrap(`<h2 class="title md" id="sheetTitle" tabindex="-1">${t('settings')}</h2>
     <div class="col" style="gap:10px"><span class="lbl">${t('language')}</span>${chips('lang', getLang(), [['en', 'English'], ['kn', 'ಕನ್ನಡ']])}<p class="small muted" style="margin:0">${t('langNote')}</p></div>
+    <div class="col" style="gap:10px"><span class="lbl">${t('bibleVerses')}</span>${chips('vlang', getVersePref(), [['auto', t('sameAsApp')], ['en', 'English'], ['kn', 'ಕನ್ನಡ']])}<p class="small muted" style="margin:0">${t('verseNote')}</p></div>
     <div class="col" style="gap:10px"><span class="lbl">${t('theme')}</span>${chips('theme', S.prefs.theme, [['cyber', t('cyber')], ['glass', t('glass')]])}${roomNote}</div>
     <div class="col" style="gap:10px"><span class="lbl">${t('lightDark')}</span>${chips('mode', S.prefs.mode, [['auto', t('auto')], ['light', t('light')], ['dark', t('dark')]])}</div>
     ${roomBtn}
@@ -789,7 +811,7 @@ function hostStartGame() {
   const n = Math.min(set.rounds, contentLength(g));
   const upd = {
     'meta/status': 'playing', answers: null,
-    round: { game: g, phase: 'intro', i: -1, n, secs: set.secs, seq: L.pickSeq(contentLength(g), n), endsAt: now + L.INTRO_MS, claims: null, teamPts: null }
+    round: { game: g, phase: 'intro', i: -1, n, secs: set.secs, seq: L.pickSeq(contentLength(g), n), endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
   };
   playerList().forEach((p) => {
     upd[`players/${p.uid}/score`] = 0; upd[`players/${p.uid}/correct`] = 0; upd[`players/${p.uid}/ready`] = false;
@@ -812,6 +834,8 @@ function hostReveal() {
   const rd = S.room.round, ans = ((S.room.answers || {})[rd.i]) || {};
   const res = scoreRound(rd, ans);
   const upd = { 'round/phase': 'reveal', 'round/endsAt': S.net.now() + L.REVEAL_MS, 'round/res': { pts: res.pts, order: res.order, first: res.first } };
+  // Kept for the final results, so everyone can see where the points came from.
+  upd[`round/hist/${rd.i}`] = { p: res.pts, f: res.first || '' };
   const teamAdd = { ruby: 0, sapphire: 0 };
   Object.entries(res.pts).forEach(([uid, pts]) => {
     const p = players()[uid];
@@ -1053,6 +1077,7 @@ const A = {
   },
   mode: (el) => { S.prefs.mode = el.dataset.v; save('ur.prefs', S.prefs); },
   lang: (el) => { setLang(el.dataset.v); S.local = null; applyTheme(); },
+  vlang: (el) => { setVersePref(el.dataset.v); S.local = null; applyTheme(); },
   pick: (el) => write(S.net.update(roomPath() + '/meta', { game: el.dataset.g })),
   set: (el) => { const g = S.room.meta.game || 'vs'; write(S.net.update(`${roomPath()}/meta/settings/${g}`, { ...settingsFor(g), [el.dataset.k]: Number(el.dataset.v) })); },
   shuffleTeams: () => {

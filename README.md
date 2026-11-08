@@ -6,7 +6,9 @@ Bible party games where everyone plays on their own phone. One phone hosts and b
 
 **Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
 
-**Languages:** English and Kannada (ಕನ್ನಡ). Each phone picks its own with the EN | ಕನ್ನಡ switch on the start screen or in Settings, so one room can mix both. The host chooses which verse or question comes up; every phone shows it in its own language. Kannada verses come from the Kannada Bible text (ಸತ್ಯವೇದವು) with scanning errors repaired; the questions, puzzles and hangman words were translated for this app and use the Kannada Bible's spellings of names. Emoji Bible accepts answers in either language.
+**Languages:** English and Kannada (ಕನ್ನಡ). Each phone picks its own with the EN | ಕನ್ನಡ switch on the start screen or in Settings, so one room can mix both. The host chooses which verse or question comes up; every phone shows it in its own language. Kannada verses come from the Kannada Bible text (ಸತ್ಯವೇದವು) with scanning errors repaired; the questions, puzzles and hangman words were translated for this app and use the Kannada Bible's spellings of names. Emoji Bible accepts answers in either language. **Bible verses** has its own setting (Settings → Bible verses: Same as app / English / ಕನ್ನಡ), so a phone can keep English menus but show Kannada verses in Verse Scramble and Finish the Verse.
+
+**Scoring:** Verse Scramble, Books Sort, Hangman and Emoji Bible give 300 / 200 / 100 by finishing order each round (0 if not finished). Twelve Tribes, Finish the Verse, Two Truths and Timeline give 200 for the first right answer and 100 for other right answers. Total time is not used. The final results show each player's points round by round and how many rounds they won, so the ranking is easy to follow.
 
 **Themes:** Cyberpunk Glitch and Stained Glass, each in light and dark (Luxury Noir was removed in 1.2.1). The host's theme shows on every phone in the room.
 
