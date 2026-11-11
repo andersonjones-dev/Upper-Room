@@ -52,6 +52,7 @@ export const STR = {
     wdGuessN: 'Guess {n} of {m}', wdSolvedN: 'Solved in {n} · {t}', wdOut: 'Out of guesses', wdGuessing: 'Everyone is guessing the same word', wdTries: '{n} tries each. Fewest guesses wins.', theWord: 'The word',
     turns: 'Turns', tOf: 'Turn {i} of {n}', huYouGuess: 'You’re guessing!', huYouHint: 'Listen to your team’s clues and say the word. Tap Got it when they say you’re right.', huGot: 'Got it', huPass: 'Pass', huPassed: 'Passed', huCorrect: 'correct', huCorrectN: '{n} correct',
     huGuessing: '{n} is guessing', huClue: 'Give {n} clues!', huClueHint: 'Don’t say the word or any part of it.', huWatch: '{n} is guessing for the other team', huWatchHint: 'Keep them honest: no saying the word!', huWords: 'This turn', huNone: 'No words this turn.', huTurnOf: '{n}’s turn',
+    pcDrawing: 'The drawing', pcDraws: '{n} is drawing', pcYouDraw: 'Your turn to draw', pcDrawThis: 'Draw this', pcNoLetters: 'No letters or numbers!', pcColour: 'Colour', pcDark: 'Dark', pcThin: 'Thin', pcThick: 'Thick', pcUndo: 'Undo', pcClear: 'Clear', pcGotIt: 'Got it · {o}', pcGuessPh: 'Which Bible story?', pcArtistPts: 'For your drawing',
     lockedIn: 'Locked in', tapInOrder: 'Tap the pieces in order', buildsHere: 'Your verse builds here. Tap a placed piece to take it back.',
     yourVerse: 'Your verse', lockedInT: 'Locked in · {t}', watchTable: 'Watch the table.', notQuite: 'Not quite',
     plus3: 'Plus 3 seconds. Tap a piece to take it back and try again.', clearAns: 'Clear my answer', roundOver: 'Round over',
@@ -127,6 +128,7 @@ export const STR = {
     wdGuessN: '{m}ರಲ್ಲಿ {n}ನೇ ಪ್ರಯತ್ನ', wdSolvedN: '{n} ಪ್ರಯತ್ನದಲ್ಲಿ · {t}', wdOut: 'ಪ್ರಯತ್ನಗಳು ಮುಗಿದವು', wdGuessing: 'ಎಲ್ಲರೂ ಒಂದೇ ಪದವನ್ನು ಊಹಿಸುತ್ತಿದ್ದಾರೆ', wdTries: 'ಪ್ರತಿಯೊಬ್ಬರಿಗೆ {n} ಪ್ರಯತ್ನಗಳು. ಕಡಿಮೆ ಪ್ರಯತ್ನದವರು ಗೆಲ್ಲುವರು.', theWord: 'ಪದ',
     turns: 'ಸರದಿಗಳು', tOf: 'ಸರದಿ {i} / {n}', huYouGuess: 'ನೀವು ಊಹಿಸುತ್ತಿದ್ದೀರಿ!', huYouHint: 'ನಿಮ್ಮ ತಂಡದ ಸುಳಿವುಗಳನ್ನು ಕೇಳಿ ಪದವನ್ನು ಹೇಳಿ. ಸರಿ ಎಂದಾಗ ‘ಸಿಕ್ಕಿತು’ ಒತ್ತಿ.', huGot: 'ಸಿಕ್ಕಿತು', huPass: 'ಮುಂದೆ', huPassed: 'ಬಿಟ್ಟದ್ದು', huCorrect: 'ಸರಿ', huCorrectN: '{n} ಸರಿ',
     huGuessing: '{n} ಊಹಿಸುತ್ತಿದ್ದಾರೆ', huClue: '{n} ಅವರಿಗೆ ಸುಳಿವು ಕೊಡಿ!', huClueHint: 'ಪದವನ್ನಾಗಲಿ ಅದರ ಭಾಗವನ್ನಾಗಲಿ ಹೇಳಬೇಡಿ.', huWatch: '{n} ಇನ್ನೊಂದು ತಂಡಕ್ಕಾಗಿ ಊಹಿಸುತ್ತಿದ್ದಾರೆ', huWatchHint: 'ಪದವನ್ನು ಹೇಳದಂತೆ ನೋಡಿಕೊಳ್ಳಿ!', huWords: 'ಈ ಸರದಿ', huNone: 'ಈ ಸರದಿಯಲ್ಲಿ ಪದಗಳಿಲ್ಲ.', huTurnOf: '{n} ಅವರ ಸರದಿ',
+    pcDrawing: 'ಚಿತ್ರ', pcDraws: '{n} ಚಿತ್ರಿಸುತ್ತಿದ್ದಾರೆ', pcYouDraw: 'ನೀವು ಚಿತ್ರಿಸುವ ಸರದಿ', pcDrawThis: 'ಇದನ್ನು ಚಿತ್ರಿಸಿ', pcNoLetters: 'ಅಕ್ಷರ, ಅಂಕಿ ಬೇಡ!', pcColour: 'ಬಣ್ಣ', pcDark: 'ಕಪ್ಪು', pcThin: 'ತೆಳು', pcThick: 'ದಪ್ಪ', pcUndo: 'ಹಿಂದಕ್ಕೆ', pcClear: 'ಅಳಿಸಿ', pcGotIt: 'ಸಿಕ್ಕಿತು · {o}', pcGuessPh: 'ಯಾವ ಬೈಬಲ್ ಕಥೆ?', pcArtistPts: 'ನಿಮ್ಮ ಚಿತ್ರಕ್ಕಾಗಿ',
     lockedIn: 'ಖಚಿತವಾಯಿತು', tapInOrder: 'ತುಂಡುಗಳನ್ನು ಕ್ರಮವಾಗಿ ಒತ್ತಿ', buildsHere: 'ನಿಮ್ಮ ವಚನ ಇಲ್ಲಿ ಜೋಡಣೆಯಾಗುತ್ತದೆ. ಹಿಂತೆಗೆಯಲು ಇಟ್ಟ ತುಂಡನ್ನು ಒತ್ತಿ.',
     yourVerse: 'ನಿಮ್ಮ ವಚನ', lockedInT: 'ಖಚಿತವಾಯಿತು · {t}', watchTable: 'ಆಟದ ಮೇಜನ್ನು ನೋಡಿ.', notQuite: 'ಸರಿಯಿಲ್ಲ',
     plus3: '3 ಸೆಕೆಂಡು ದಂಡ. ತುಂಡನ್ನು ಒತ್ತಿ ಹಿಂತೆಗೆದು ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.', clearAns: 'ನನ್ನ ಉತ್ತರ ಅಳಿಸಿ', roundOver: 'ಸುತ್ತು ಮುಗಿಯಿತು',
@@ -158,7 +160,7 @@ export const STR = {
 // Game names, modes and how-to text.
 export const GAME_TEXT = {
   kn: {
-    pc: ['ಬೈಬಲ್ ಚಿತ್ರಾಟ'], vs: ['ವಚನ ಜೋಡಣೆ', 'ಒಂದು ವಚನವನ್ನು ತುಂಡುಗಳಾಗಿ ಕತ್ತರಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಅವುಗಳನ್ನು ಕ್ರಮವಾಗಿ ಒತ್ತಿ. ಸರಿಯಾದ ಕ್ರಮವನ್ನು ಬೇಗ ಜೋಡಿಸಿದವರು ಗೆಲ್ಲುವರು.'],
+    pc: ['ಬೈಬಲ್ ಚಿತ್ರಾಟ', 'ಆಟಗಾರರು ಸರದಿಯಂತೆ ತಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಒಂದು ಬೈಬಲ್ ಕಥೆಯನ್ನು ಚಿತ್ರಿಸುತ್ತಾರೆ; ಉಳಿದವರು ಅದು ಮೂಡುವುದನ್ನು ನೋಡಿ ತಮ್ಮ ಉತ್ತರವನ್ನು ಬರೆಯುತ್ತಾರೆ. ಬೇಗ ಸರಿಯಾಗಿ ಊಹಿಸಿದವರಿಗೆ ಹೆಚ್ಚು ಅಂಕ; ಪ್ರತಿ ಸರಿಯಾದ ಊಹೆಗೆ ಚಿತ್ರಿಸಿದವರಿಗೂ ಅಂಕ (300ರ ವರೆಗೆ).'], vs: ['ವಚನ ಜೋಡಣೆ', 'ಒಂದು ವಚನವನ್ನು ತುಂಡುಗಳಾಗಿ ಕತ್ತರಿಸಲಾಗಿದೆ. ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಅವುಗಳನ್ನು ಕ್ರಮವಾಗಿ ಒತ್ತಿ. ಸರಿಯಾದ ಕ್ರಮವನ್ನು ಬೇಗ ಜೋಡಿಸಿದವರು ಗೆಲ್ಲುವರು.'],
     bk: ['ಪುಸ್ತಕಗಳ ಕ್ರಮ', 'ಬೈಬಲ್‌ನ ಆರು ಪುಸ್ತಕಗಳು, ಕಲಸಿಹೋಗಿವೆ. ಎಳೆದು, ಅಥವಾ ಎರಡನ್ನು ಒತ್ತಿ ಅದಲುಬದಲು ಮಾಡಿ, ಬೈಬಲ್ ಕ್ರಮದಲ್ಲಿ ಜೋಡಿಸಿ. ತಪ್ಪು ಪರಿಶೀಲನೆಗೆ 3 ಸೆಕೆಂಡು ದಂಡ.'],
     tt: ['ಎರಡು ಸತ್ಯ, ಒಂದು ಸುಳ್ಳು', 'ಒಬ್ಬ ಬೈಬಲ್ ವ್ಯಕ್ತಿಯ ಬಗ್ಗೆ ಮೂರು ಹೇಳಿಕೆಗಳು. ಎರಡು ಸತ್ಯ. ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಸುಳ್ಳಿಗೆ ಮತ ನೀಡಿ. ಮೊದಲ ಸರಿ ಉತ್ತರಕ್ಕೆ ಬೋನಸ್; ಮತ ಬದಲಿಸಿದರೆ ನಿಮ್ಮ ಸಮಯ ಮತ್ತೆ ಆರಂಭವಾಗುತ್ತದೆ.'],
     fv: ['ವಚನ ಪೂರ್ಣಗೊಳಿಸಿ', 'ವಚನದ ಆರಂಭ ತೋರಿಸಲಾಗುತ್ತದೆ. ನಿಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಸರಿಯಾದ ಕೊನೆಯ ಭಾಗವನ್ನು ಆರಿಸಿ. ಪ್ರತಿ ಸರಿ ಉತ್ತರಕ್ಕೆ ನಿಮ್ಮ ತಂಡಕ್ಕೆ ಅಂಕ; ಮೊದಲ ಸರಿ ಉತ್ತರಕ್ಕೆ ಬೋನಸ್.'],

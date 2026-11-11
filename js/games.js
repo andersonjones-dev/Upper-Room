@@ -11,7 +11,7 @@ export const MAX_WRONG = 6;
 export const BOOK_SET = 6;
 
 export function contentLength(g) {
-  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, wd: WORDLE.length, bk: 1000 }[g] || 1;
+  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, wd: WORDLE.length, pc: EMOJI.length, bk: 1000 }[g] || 1;
 }
 
 /** Finish the Verse: the shown start and the ending to find. */
@@ -212,3 +212,11 @@ export function huGuesser(list, i) {
   const p = mine[k % mine.length];
   return { uid: p.uid, team: p.team === 'sapphire' ? 'sapphire' : 'ruby' };
 }
+
+// ----- Bible Pictionary -----
+/** Who draws on turn i: everyone in join order. */
+export const pcDrawer = (list, i) => (list.length ? list[i % list.length].uid : '');
+/** A stroke as stored: "x,y x,y …" on a 1000 × 1000 board. */
+export const pcEncode = (pts) => pts.map(([x, y]) => Math.round(x) + ',' + Math.round(y)).join(' ');
+export const pcDecode = (s) => String(s || '').split(' ').filter(Boolean).map((p) => p.split(',').map(Number));
+export const PC_INKS = ['ink', 'ruby', 'sapphire', 'emerald'];

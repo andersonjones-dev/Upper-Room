@@ -1,7 +1,8 @@
 // Pure game logic: no DOM, no network. Tested with `node --test`.
 
 export const GAMES = [
-  { id: 'pc', n: '01', sym: 'Pc', name: 'Bible Pictionary', mode: 'Draw', c: 'sapphire' },
+  { id: 'pc', n: '01', sym: 'Pc', name: 'Bible Pictionary', mode: 'Draw', c: 'sapphire', ready: true,
+    how: 'Players take turns to draw a Bible story on their phone; everyone else sees it appear and types their guess. Fastest right guesses score most, and the artist scores for every right guess (up to 300).' },
   { id: 'vs', n: '02', sym: 'Vs', name: 'Verse Scramble', mode: 'Race', c: 'ruby', ready: true,
     how: 'A verse is cut into pieces. Tap them back into order on your phone. Fastest correct order wins.' },
   { id: 'bk', n: '03', sym: 'Bk', name: 'Books Sort', mode: 'Race', c: 'amber', ready: true,
@@ -36,7 +37,8 @@ export const SETTINGS = {
   bk: { rounds: [3, 5, 8], secs: [30, 45, 60], def: { rounds: 5, secs: 45 } },
   tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } },
   wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } },
-  hu: { rounds: [4, 6, 8], secs: [45, 60, 90], def: { rounds: 4, secs: 60 } }
+  hu: { rounds: [4, 6, 8], secs: [45, 60, 90], def: { rounds: 4, secs: 60 } },
+  pc: { rounds: [3, 5, 8], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
@@ -135,6 +137,14 @@ export function scoreWordle(ans) {
   const pts = {}, order = [];
   ok.forEach(([u], i) => { pts[u] = rankPoints(i); order.push(u); });
   return { pts, order, first: order[0] || null };
+}
+
+/** Bible Pictionary: guessers ranked by time like Emoji Bible; the artist gets 100 for each right guess, up to 300. */
+export function scorePictionary(ans, drawer) {
+  const guesses = Object.fromEntries(Object.entries(ans || {}).filter(([u]) => u !== drawer));
+  const r = scoreEmoji(guesses);
+  if (drawer && r.order.length) r.pts[drawer] = Math.min(3, r.order.length) * 100;
+  return r;
 }
 
 /** Emoji Bible: rank correct answers by server time. */

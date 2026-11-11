@@ -1,0 +1,75 @@
+// Bible Pictionary: Ben (Kannada) draws, Cara (English) watches the strokes arrive and guesses; a bot guesses too.
+// Usage: node tests/e2e-pictionary.cjs <base-url> <screenshot-dir>
+const { chromium } = require('playwright');
+const path = require('path');
+const BASE = process.argv[2] || 'http://127.0.0.1:8765/upper-room/';
+const SHOTS = process.argv[3] || '/tmp/ur-shots';
+
+(async () => {
+  const T = await import(path.resolve(__dirname, '../js/text.js'));
+  const EN = T.content('en');
+  const browser = await chromium.launch();
+  const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true });
+  const errors = [];
+  const mk = async (label) => { const p = await ctx.newPage(); p.on('pageerror', (e) => errors.push(label + ': ' + e.message)); return p; };
+  const host = await mk('host');
+  await host.goto(BASE + '?net=local'); await host.evaluate(() => localStorage.clear()); await host.goto(BASE + '?net=local');
+  await host.click('[data-act="host"]'); await host.waitForSelector('.code');
+  const code = (await host.textContent('.code')).trim();
+  const join = async (label, name, color, lang) => {
+    const p = await mk(label);
+    await p.goto(BASE + '?net=local&join=' + code);
+    await p.click(`[data-act="lang"][data-v="${lang}"]`);
+    await p.fill('#name', name); await p.click(`[data-act="color"][data-c="${color}"]`); await p.click('[data-act="join"]');
+    await p.waitForSelector(lang === 'kn' ? 'text=ನೀವು ಸೇರಿದ್ದೀರಿ.' : "text=You're in.");
+    return p;
+  };
+  const ben = await join('ben', 'Ben', 'sapphire', 'kn'), cara = await join('cara', 'Cara', 'emerald', 'en');
+  await host.click('[data-act="addBot"]');
+  await host.waitForFunction(() => Object.keys(__ur.room.players).length === 3);
+  await host.click('[data-act="pick"][data-g="pc"]');
+  await host.click('[data-act="set"][data-k="rounds"][data-v="3"]');
+  await host.click('[data-act="set"][data-k="secs"][data-v="60"]');
+  await host.click('[data-act="start"]');
+  await ben.waitForFunction(() => __ur.room.round && __ur.room.round.phase === 'play', null, { timeout: 30000 });
+  const rd = await host.evaluate(() => __ur.room.round);
+  const drawer = await host.evaluate((u) => __ur.room.players[u].name, rd.data.drawer);
+  if (drawer !== 'Ben') errors.push('first drawer should be Ben, got ' + drawer);
+  await ben.waitForSelector('.pc-c');
+  const box = await ben.locator('.pc-c').boundingBox();
+  const line = async (pts) => { await ben.mouse.move(box.x + pts[0][0] * box.width, box.y + pts[0][1] * box.height); await ben.mouse.down();
+    for (const [x, y] of pts.slice(1)) await ben.mouse.move(box.x + x * box.width, box.y + y * box.height, { steps: 6 }); await ben.mouse.up(); };
+  await line([[0.2, 0.7], [0.5, 0.3], [0.8, 0.7], [0.2, 0.7]]);
+  await ben.click('[data-act="pcInk"][data-v="ruby"]');
+  await ben.click('[data-act="pcW"][data-v="22"]');
+  await line([[0.3, 0.8], [0.7, 0.8]]);
+  await line([[0.1, 0.1], [0.15, 0.15]]);
+  await ben.click('[data-act="pcUndo"]');
+  await cara.waitForFunction((u) => Object.keys(((__ur.room.answers || {})[0] || {})[u]?.s || {}).length === 2, rd.data.drawer);
+  const strokes = await cara.evaluate((u) => Object.values(__ur.room.answers[0][u].s), rd.data.drawer);
+  if (strokes[1].c !== 'ruby' || strokes[1].w !== 22) errors.push('second stroke style ' + JSON.stringify(strokes[1]));
+  // Cara sees ink on her canvas
+  const inked = await cara.evaluate(() => { const c = document.querySelector('.pc-c'); const d = c.getContext('2d').getImageData(0, 0, 1000, 1000).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] < 120) n++; return n; });
+  if (inked < 500) errors.push('Cara canvas looks empty: ' + inked);
+  await ben.screenshot({ path: `${SHOTS}/pc-01-drawer-kn.png` });
+  await cara.fill('#guess', 'zzz'); await cara.press('#guess', 'Enter'); await cara.waitForSelector("text=Not it");
+  await cara.screenshot({ path: `${SHOTS}/pc-02-guesser-en.png` });
+  await cara.fill('#guess', EN.EMOJI[rd.seq[0]].a); await cara.press('#guess', 'Enter');
+  await cara.waitForSelector('text=Got it');
+  await host.screenshot({ path: `${SHOTS}/pc-03-host.png` });
+  const ov = (p) => p.evaluate(() => { const v = document.getElementById('view'); return v.scrollHeight - v.clientHeight; });
+  console.log('overflow drawer', await ov(ben), 'guesser', await ov(cara), 'host', await ov(host));
+  await host.click('[data-act="skip"]');
+  await host.waitForFunction(() => __ur.room.round.phase === 'reveal');
+  const pts = await host.evaluate(() => __ur.room.round.res.pts);
+  const byName = await host.evaluate((pts) => Object.fromEntries(Object.entries(pts).map(([u, v]) => [__ur.room.players[u].name, v])), pts);
+  console.log('points', JSON.stringify(byName));
+  if (byName.Cara !== 300 || !(byName.Ben >= 100)) errors.push('points ' + JSON.stringify(byName));
+  await ben.screenshot({ path: `${SHOTS}/pc-04-drawer-reveal.png` });
+  await ben.waitForFunction(() => __ur.room.round.i === 1 && __ur.room.round.phase === 'play', null, { timeout: 30000 });
+  const d2 = await host.evaluate(() => __ur.room.players[__ur.room.round.data.drawer].name);
+  if (d2 !== 'Cara') errors.push('second drawer should be Cara, got ' + d2);
+  console.log(errors.length ? 'ERRORS:\n' + errors.join('\n') : 'E2E PICTIONARY OK');
+  await browser.close();
+  process.exit(errors.length ? 1 : 0);
+})().catch((e) => { console.error(e); process.exit(1); });

@@ -137,6 +137,7 @@ function paint() {
   });
   paintChrome();
   tickTimers();
+  pcRender();
 }
 function paintChrome() {
   // Update bar
@@ -344,6 +345,57 @@ function hangSlots(word, guessed, show, markMissed) {
 const mw = () => G.livesFor(((S.room || {}).round || {}).level);
 const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: mw() - wrong, b: mw() })}">${[...Array(mw()).keys()].map((k) => `<span class="life ${k < mw() - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
 
+/* ----- Bible Pictionary ----- */
+const PC_HEX = { ink: '#1B1530', ruby: '#B3261E', sapphire: '#2E5FBF', emerald: '#2B8A60' };
+const pcPath = (rd) => `${roomPath()}/answers/${rd.i}/${(rd.data || {}).drawer}/s`;
+const pcStrokes = (rd) => { const a = ((((S.room || {}).answers || {})[rd.i]) || {})[(rd.data || {}).drawer] || {}; const s = a.s || {}; return Object.keys(s).sort().map((k) => ({ k, ...s[k] })); };
+const pcCanvas = (rd) => `<div class="pc-wrap"><canvas class="pc-c" data-pc="${rd.i}:${rd.startedAt || 0}" width="1000" height="1000" role="img" aria-label="${t('pcDrawing')}"></canvas></div>`;
+function pcRender() {
+  const cv = document.querySelector('.pc-c'), rd = S.room && S.room.round;
+  if (!cv || !rd || rd.game !== 'pc') return;
+  const x = cv.getContext('2d');
+  x.fillStyle = '#FFFDF8'; x.fillRect(0, 0, 1000, 1000);
+  x.lineCap = 'round'; x.lineJoin = 'round';
+  const draw = (st, pts) => {
+    x.strokeStyle = PC_HEX[st.c] || PC_HEX.ink; x.fillStyle = x.strokeStyle; x.lineWidth = st.w || 8;
+    if (pts.length === 1) { x.beginPath(); x.arc(pts[0][0], pts[0][1], (st.w || 8) / 2, 0, 7); x.fill(); return; }
+    x.beginPath(); pts.forEach(([a, b], j) => (j ? x.lineTo(a, b) : x.moveTo(a, b))); x.stroke();
+  };
+  pcStrokes(rd).forEach((st) => { if (!S.pcCur || st.k !== S.pcCur.k) draw(st, G.pcDecode(st.p)); });
+  if (S.pcCur) draw(S.pcCur, S.pcCur.pts);
+}
+function pcTools() {
+  const ink = S.pcInk || 'ink', w = S.pcW || 8;
+  return `<div class="pc-tools">${G.PC_INKS.map((c) => `<button class="pc-ink ${ink === c ? 'on' : ''}" data-act="pcInk" data-v="${c}" style="--ink:${PC_HEX[c]}" aria-label="${t('pcColour')} ${esc(c === 'ink' ? t('pcDark') : colorName(c))}" aria-pressed="${ink === c}"></button>`).join('')}<button class="chip ${w === 8 ? 'on' : ''}" data-act="pcW" data-v="8">${t('pcThin')}</button><button class="chip ${w === 22 ? 'on' : ''}" data-act="pcW" data-v="22">${t('pcThick')}</button><span class="grow"></span><button class="btn btn-s btn-sm" data-act="pcUndo">${t('pcUndo')}</button><button class="btn btn-s btn-sm" data-act="pcClear">${t('pcClear')}</button></div>`;
+}
+function pcLive() {
+  const rd = S.room && S.room.round;
+  return rd && rd.game === 'pc' && rd.phase === 'play' && (rd.data || {}).drawer === S.net.uid && S.net.now() < rd.endsAt ? rd : null;
+}
+let pcLast = 0;
+const pcPoint = (ev, cv) => { const r = cv.getBoundingClientRect(); return [Math.max(0, Math.min(1000, ((ev.clientX - r.left) / r.width) * 1000)), Math.max(0, Math.min(1000, ((ev.clientY - r.top) / r.height) * 1000))]; };
+const pcSend = (rd) => { const c = S.pcCur; if (c) write(S.net.set(`${pcPath(rd)}/${c.k}`, { c: c.c, w: c.w, p: G.pcEncode(c.pts) })); };
+document.addEventListener('pointerdown', (ev) => {
+  const cv = ev.target.closest && ev.target.closest('.pc-c'), rd = pcLive();
+  if (!cv || !rd) return;
+  ev.preventDefault();
+  S.pcCur = { k: 'k' + Date.now().toString(36), c: S.pcInk || 'ink', w: S.pcW || 8, pts: [pcPoint(ev, cv)], pid: ev.pointerId, cv };
+  try { cv.setPointerCapture(ev.pointerId); } catch {}
+  pcRender();
+});
+document.addEventListener('pointermove', (ev) => {
+  const c = S.pcCur; if (!c || ev.pointerId !== c.pid) return;
+  ev.preventDefault();
+  const p = pcPoint(ev, c.cv), q = c.pts[c.pts.length - 1];
+  if (Math.hypot(p[0] - q[0], p[1] - q[1]) < 4) return;
+  c.pts.push(p); pcRender();
+  const now = Date.now(), rd = pcLive();
+  if (rd && now - pcLast > 150) { pcLast = now; pcSend(rd); }
+}, { passive: false });
+const pcEnd = (ev) => { const c = S.pcCur; if (!c || ev.pointerId !== c.pid) return; const rd = pcLive(); if (rd) pcSend(rd); S.pcCur = null; pcRender(); };
+document.addEventListener('pointerup', pcEnd);
+document.addEventListener('pointercancel', pcEnd);
+
 /* ----- Heads Up ----- */
 const huState = (rd) => { const d = rd.data || {}, a = (((S.room.answers || {})[rd.i]) || {})[d.guesser] || {}; return { d, k: a.k || 0, got: a.got || [], pass: a.pass || 0 }; };
 function huCardList(rd) {
@@ -463,6 +515,16 @@ function hostPlay() {
     secs.push(['line', timelineLine(data.anchors, item, reveal ? right : -1, !reveal)]);
     if (reveal) firstNote(!!res.first, t('wasFirst', { n: esc(pName(res.first)) }), res.first ? t('placedRight', { n: res.order.length, g: right + 1 }) : t('goesGap', { g: right + 1 }));
     else secs.push(['cnt', answeredRow(ans)]);
+  }
+
+  if (rd.game === 'pc') {
+    const e = C().EMOJI[item], dr = players()[(rd.data || {}).drawer] || {};
+    secs.push(['who', `<div class="row" style="gap:10px;align-items:center">${avatar(dr, 'sm')}<span class="card-title">${esc(t('pcDraws', { n: dr.name || t('someone') }))}</span></div>`]);
+    secs.push(['canvas', pcCanvas(rd)]);
+    if (reveal) secs.push(['ans', `<div class="card col" style="gap:4px;align-items:center;text-align:center"><span class="title md">${esc(e.a)}</span><span class="det small muted">${esc(e.ref)}</span></div>`]);
+    const gl = list.filter((p) => p.uid !== (rd.data || {}).drawer), order = L.scoreEmoji(Object.fromEntries(gl.map((p) => [p.uid, ans[p.uid]]).filter(([, a]) => a))).order;
+    secs.push(['race', raceRows(gl.map((p) => ({ p, done: order.includes(p.uid), status: order.includes(p.uid) ? t('pcGotIt', { o: ord(order.indexOf(p.uid) + 1) }) : t('thinking') }))
+      .sort((a, b) => (order.includes(b.p.uid) ? 1e3 - order.indexOf(b.p.uid) : 0) - (order.includes(a.p.uid) ? 1e3 - order.indexOf(a.p.uid) : 0)))]);
   }
 
   if (rd.game === 'hu') huTable(rd, reveal).forEach((x) => secs.push(x));
@@ -679,6 +741,22 @@ function playerPlay() {
       rows.push(`<button class="gapbtn ${picked === k ? 'is-sel' : ''}" data-act="answer" data-i="${k}" ${picked !== null ? 'disabled' : ''} aria-pressed="${picked === k}">${picked === k ? t('yourAnswer') : t('placeHere')}</button>`);
       secs.push(['line', `<div class="col tline" style="gap:5px">${rows.join('')}</div>`]);
       if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
+    }
+  }
+
+  if (rd.game === 'pc') {
+    const e = C().EMOJI[item], drawer = (rd.data || {}).drawer, dr = players()[drawer] || {}, mineTurn = drawer === uid;
+    secs.push(['h', head(esc(mineTurn && !reveal ? t('pcYouDraw') : t('pcDraws', { n: dr.name || t('someone') })), det, reveal ? null : rd.endsAt, 'tpill')]);
+    if (mineTurn && !reveal) secs.push(['word', `<div class="card row between" style="gap:10px;align-items:center"><div class="col"><span class="lbl">${t('pcDrawThis')}</span><span class="card-title">${esc(e.a)}</span></div><span class="small muted" style="max-width:40%">${t('pcNoLetters')}</span></div>`]);
+    secs.push(['canvas', pcCanvas(rd)]);
+    if (reveal) {
+      secs.push(['ans', `<div class="card col" style="gap:4px;align-items:center;text-align:center"><span class="title md">${esc(e.a)}</span><span class="det small muted">${esc(e.ref)}</span></div>`]);
+      secs.push(['you', myPts ? note(true, `+${myPts}`, mineTurn ? t('pcArtistPts') : ord(res.order.indexOf(uid) + 1)) : note(false, t('noPoints'), '')]);
+    } else if (mineTurn) secs.push(['tools', pcTools()]);
+    else if (loc.done || mine.ok) secs.push(['form-done', note(true, t('gotIt', { o: ord(L.scoreEmoji(Object.fromEntries(Object.entries(ans).filter(([u]) => u !== drawer))).order.indexOf(uid) + 1) }), t('waitOthers'))]);
+    else {
+      secs.push(['form', `<form class="col" style="gap:10px" data-form="guess"><div class="row" style="gap:10px"><input id="guess" class="field" data-draft="guess" maxlength="60" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="send" placeholder="${esc(t('pcGuessPh'))}" aria-label="${esc(t('yourAnswer'))}"><button class="btn btn-p btn-fit" type="submit">${t('guessB')}</button></div></form>`]);
+      secs.push(['n', loc.guessWrong ? note(false, t('notIt'), t('tryAgainSpell')) : '']);
     }
   }
 
@@ -942,6 +1020,7 @@ function hostStartGame() {
 }
 function hostStartRound(i) {
   const rd = S.room.round, now = S.net.now();
+  if (rd.game === 'pc') return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { drawer: G.pcDrawer(playerList(), i) }, res: null });
   if (rd.game === 'hu') {
     const who = G.huGuesser(playerList(), i);
     const q = { book: rd.book || '', level: rd.level || 'm' }, all = S.seen || loadSeen(), key = ['hu', q.book || 'all', q.level].join('|');
@@ -956,6 +1035,7 @@ function scoreRound(rd, ans) {
   if (['vs', 'bk', 'hg'].includes(rd.game)) return L.scoreScramble(ans);
   if (rd.game === 'em') return L.scoreEmoji(ans);
   if (rd.game === 'wd') return L.scoreWordle(ans);
+  if (rd.game === 'pc') return L.scorePictionary(ans, (rd.data || {}).drawer);
   if (rd.game === 'hu') { const gu = (rd.data || {}).guesser, got = ((ans[gu] || {}).got || []).length; return got ? { pts: { [gu]: got * 100 }, order: [gu], first: null } : { pts: {}, order: [], first: null }; }
   const right = G.correctOption(rd.game, item, rd.data || {});
   return L.scoreTrivia(ans, right);
@@ -1003,7 +1083,7 @@ function hostTick() {
   if (rd.phase === 'intro' && now >= rd.endsAt) hostStep(() => hostStartRound(0));
   else if (rd.phase === 'play') {
     const ans = ((r.answers || {})[rd.i]) || {};
-    const all = L.allDone(rd.game, ans, activeUids());
+    const all = L.allDone(rd.game, ans, activeUids().filter((u) => !(rd.game === 'pc' && u === (rd.data || {}).drawer)));
     if (now >= rd.endsAt) hostStep(hostReveal);
     else if (all && rd.game === 'tt') {
       // Two Truths: votes can change, so wait 3 s after everyone has voted (any change restarts it).
@@ -1049,6 +1129,11 @@ function botsPlay(rd, now) {
       const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
       if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
       if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, mw()), f: 1, t: n, w: mw(), out: true });
+    } else if (rd.game === 'pc' && data.drawer === p.uid) {
+      // A practice bot draws a few squiggles so the board isn't empty.
+      const k = Math.min(6, Math.floor(elapsed / 3500)), r = L.seeded(key + k);
+      if (k > 0) { const x0 = 150 + r() * 700, y0 = 150 + r() * 700; const pts = [...Array(8).keys()].map((j) => [x0 + Math.cos(j) * 120 * r(), y0 + Math.sin(j * 1.3) * 120 * r()]);
+        const id = key + p.uid + 's' + k; if (!botSent.has(id)) { botSent.add(id); write(S.net.set(`${roomPath()}/answers/${rd.i}/${p.uid}/s/k${k}`, { c: 'ink', w: 8, p: G.pcEncode(pts) })); } }
     } else if (rd.game === 'hu') {
       if (data.guesser !== p.uid) return;
       const k = Math.min((data.cards || []).length, Math.floor(elapsed / 6500)), r = L.seeded(key);
@@ -1093,7 +1178,8 @@ function unplacePiece(k) {
 }
 function submitGuess() {
   const rd = S.room.round;
-  if (!rd || rd.game !== 'em' || rd.phase !== 'play') return;
+  if (!rd || !['em', 'pc'].includes(rd.game) || rd.phase !== 'play') return;
+  if (rd.game === 'pc' && (rd.data || {}).drawer === S.net.uid) return;
   const loc = ensureLocal(rd), guess = S.drafts.guess || '';
   if (!guess.trim() || loc.done) return;
   loc.tries++;
@@ -1317,6 +1403,10 @@ const A = {
     write(S.net.set(myAnsPath(), { a: Number(el.dataset.i), at: S.net.TS }));
   },
   letter: (el) => guessLetter(el.dataset.c),
+  pcInk: (el) => { S.pcInk = el.dataset.v; },
+  pcW: (el) => { S.pcW = Number(el.dataset.v); },
+  pcUndo: () => { const rd = pcLive(); if (!rd) return; const st = pcStrokes(rd); if (st.length) write(S.net.set(`${pcPath(rd)}/${st[st.length - 1].k}`, null)); },
+  pcClear: () => { const rd = pcLive(); if (rd) write(S.net.set(pcPath(rd), null)); },
   huGot: () => huMark(true),
   huPass: () => huMark(false),
   wdKey: (el) => wdType(el.dataset.c),

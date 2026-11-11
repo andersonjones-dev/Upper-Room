@@ -19,7 +19,7 @@ export const bookOf = (ref) => (parseRef(ref) || {}).book || '';
 export function tagOf(g, i, C) {
   if (g === 'vs' || g === 'fv') { const x = C.VERSES[i]; return { book: bookOf(x.ref), d: x.d || 'm' }; }
   if (g === 'tr') { const x = C.TRIVIA[i]; return { book: bookOf(x.ref), d: x.d || 'm' }; }
-  if (g === 'em') { const x = C.EMOJI[i]; return { book: bookOf(x.ref), d: x.d || 'm' }; }
+  if (g === 'em' || g === 'pc') { const x = C.EMOJI[i]; return { book: bookOf(x.ref), d: x.d || 'm' }; }
   if (g === 'hg') { const x = C.HANGMAN[i]; return { book: x[2] || '', d: x[3] || 'm' }; }
   if (g === 'tt') { const x = C.TWO_TRUTHS[i]; return { book: bookOf(x.t[0][1]), d: x.d || 'm' }; }
   if (g === 'tl') { const x = C.TIMELINE[i]; return { book: bookOf(x[1]), d: x[2] || 'm' }; }
@@ -34,13 +34,14 @@ export function tagOf(g, i, C) {
  */
 export function eligible(g, total, C, { book = '', level = 'm' } = {}, min = 1) {
   const all = [...Array(total).keys()];
-  const inBook = book ? all.filter((i) => tagOf(g, i, C).book === book) : all;
+  const drawable = g === 'pc' ? all.filter((i) => !C.EMOJI[i].nd) : all; // Pictionary skips sayings you can't draw
+  const inBook = book ? drawable.filter((i) => tagOf(g, i, C).book === book) : drawable;
   const upto = LEVELS.indexOf(level) < 0 ? 1 : LEVELS.indexOf(level);
   for (let k = upto; k < LEVELS.length; k++) {
     const ok = inBook.filter((i) => LEVELS.indexOf(tagOf(g, i, C).d) <= k);
     if (ok.length >= min) return ok;
   }
-  return inBook.length ? inBook : all;
+  return inBook.length ? inBook : drawable;
 }
 
 /**

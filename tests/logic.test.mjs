@@ -328,3 +328,13 @@ test('Heads Up: teams and players take turns guessing', async () => {
 function EN_IDX(w) { return HANGMAN_WORDS.indexOf(w); }
 import { HANGMAN as HANGMAN_ALL } from '../js/content.js';
 const HANGMAN_WORDS = HANGMAN_ALL.map((x) => x[0]);
+
+test('Pictionary: only drawable items, enough in every quiz book; artist points', async () => {
+  const P = await import('../js/pool.js');
+  const C = await import('../js/content.js');
+  const all = P.eligible('pc', C.EMOJI.length, C, { level: 'h' });
+  assert.ok(all.every((i) => !C.EMOJI[i].nd));
+  for (const b of P.QUIZ_BOOKS) assert.ok(P.eligible('pc', C.EMOJI.length, C, { book: b, level: 'h' }).length >= 8, 'pc ' + b);
+  const r = L.scorePictionary({ d: { s: {} }, a: { ok: true, at: 5 }, b: { ok: true, at: 3 } }, 'd');
+  assert.deepEqual(r.order, ['b', 'a']); assert.equal(r.pts.d, 200); assert.equal(r.pts.b, 300);
+});

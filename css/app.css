@@ -475,3 +475,10 @@ html[data-vlang="kn"] :is(.verse, .piece, .zone, .opt-t.long) { letter-spacing: 
 .hu-b { min-height: 120px; font-size: 24px; }
 .hu-card { padding-top: 28px; padding-bottom: 28px; }
 .hu-word { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 10vw, 46px); line-height: 1.1; overflow-wrap: anywhere; }
+
+/* ----- Bible Pictionary ----- */
+.pc-wrap { display: flex; justify-content: center; }
+.pc-c { width: min(100%, calc(100dvh - 330px)); aspect-ratio: 1; height: auto; background: #FFFDF8; border: 2px solid var(--color-border); border-radius: var(--radius-sm); touch-action: none; display: block; }
+.pc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pc-ink { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); border: 3px solid var(--color-surface); box-shadow: 0 0 0 2px var(--color-border); padding: 0; }
+.pc-ink.on { box-shadow: 0 0 0 3px var(--color-text); }
