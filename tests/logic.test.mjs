@@ -338,3 +338,21 @@ test('Pictionary: only drawable items, enough in every quiz book; artist points'
   const r = L.scorePictionary({ d: { s: {} }, a: { ok: true, at: 5 }, b: { ok: true, at: 3 } }, 'd');
   assert.deepEqual(r.order, ['b', 'a']); assert.equal(r.pts.d, 200); assert.equal(r.pts.b, 300);
 });
+
+test('Exodus Escape: codes, clue holders, shared points, content in every quiz book', async () => {
+  const G2 = await import('../js/games.js');
+  const P = await import('../js/pool.js');
+  const C = await import('../js/content.js');
+  const T = await import('../js/text.js');
+  assert.equal(T.content('kn').ESCAPE.length, C.ESCAPE.length);
+  C.ESCAPE.forEach(([q, n, ref]) => { assert.ok(Number.isInteger(n) && n >= 0, q); assert.ok(P.bookOf(ref), ref); });
+  const f = [0, 1, 2];
+  assert.equal(G2.exCode(f), f.map((i) => C.ESCAPE[i][1] % 10).join(''));
+  const list = [{ uid: 'a' }, { uid: 'b' }];
+  assert.deepEqual([0, 1, 2].map((j) => G2.exHolder(list, 0, j)), ['a', 'b', 'a']);
+  assert.deepEqual([0, 1, 2].map((j) => G2.exHolder(list, 1, j)), ['b', 'a', 'b']);
+  const r = L.scoreEscape({ a: { tried: ['111'] }, b: { ok: true, at: 1000 + 20000 } }, 1000, 90, ['a', 'b', 'c']);
+  assert.deepEqual(r.pts, { a: 300, b: 300, c: 300 });
+  assert.equal(L.scoreEscape({ b: { ok: true, at: 80000 } }, 0, 90, ['a']).pts.a, 100);
+  for (const b of P.QUIZ_BOOKS) assert.ok(P.eligible('ex', C.ESCAPE.length, C, { book: b, level: 'h' }).length >= 4, 'escape ' + b);
+});

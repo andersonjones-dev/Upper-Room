@@ -1,5 +1,5 @@
 // Per-game rules that don't touch the screen or network. Tested with `node --test`.
-import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS, WORDLE } from './content.js';
+import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS, WORDLE, ESCAPE } from './content.js';
 import { WORDLE_OK } from './wordle-words.js';
 import { shuffle, scrambleOrder, seeded } from './logic.js';
 import { content } from './text.js';
@@ -11,7 +11,7 @@ export const MAX_WRONG = 6;
 export const BOOK_SET = 6;
 
 export function contentLength(g) {
-  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, wd: WORDLE.length, pc: EMOJI.length, bk: 1000 }[g] || 1;
+  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, wd: WORDLE.length, pc: EMOJI.length, ex: ESCAPE.length, bk: 1000 }[g] || 1;
 }
 
 /** Finish the Verse: the shown start and the ending to find. */
@@ -220,3 +220,12 @@ export const pcDrawer = (list, i) => (list.length ? list[i % list.length].uid : 
 export const pcEncode = (pts) => pts.map(([x, y]) => Math.round(x) + ',' + Math.round(y)).join(' ');
 export const pcDecode = (s) => String(s || '').split(' ').filter(Boolean).map((p) => p.split(',').map(Number));
 export const PC_INKS = ['ink', 'ruby', 'sapphire', 'emerald'];
+
+// ----- Exodus Escape -----
+export const EX_STAGES = 5;
+/** Digits in a lock: three, or four on Hard. */
+export const exDigits = (level) => (level === 'h' ? 4 : 3);
+/** The lock code: the last digit of each clue's answer. */
+export const exCode = (facts) => facts.map((i) => ESCAPE[i][1] % 10).join('');
+/** Which player holds clue j on lock i: spread around the room, a different start each lock. */
+export const exHolder = (list, i, j) => (list.length ? list[(i + j) % list.length].uid : '');

@@ -345,6 +345,19 @@ function hangSlots(word, guessed, show, markMissed) {
 const mw = () => G.livesFor(((S.room || {}).round || {}).level);
 const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: mw() - wrong, b: mw() })}">${[...Array(mw()).keys()].map((k) => `<span class="life ${k < mw() - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
 
+/* ----- Exodus Escape ----- */
+const exOpened = (rd) => Object.values(rd.hist || {}).filter((h) => h && h.f).length;
+const exSummary = (rd) => (exOpened(rd) === rd.n ? t('exEscaped', { n: rd.n }) : t('exCaught', { a: exOpened(rd), b: rd.n }));
+const exStage = (rd) => `<div class="card col ex-stage" style="gap:6px"><span class="lbl">${t('exLock', { i: rd.i + 1, n: rd.n })}</span><span class="title md">${t('exS' + ((rd.i % G.EX_STAGES) + 1))}</span><span class="small muted">${t('exL' + ((rd.i % G.EX_STAGES) + 1))}</span></div>`;
+function exClue(f, j) {
+  const [q, n] = C().ESCAPE[f];
+  return `<div class="li"><span class="ex-d">${j + 1}</span><span class="grow col" style="gap:2px"><span>${esc(q)}</span>${n >= 10 ? `<span class="small muted">${t('exLast')}</span>` : ''}</span></div>`;
+}
+function exTries(ans) {
+  const rows = Object.entries(ans).flatMap(([u, a]) => (a && a.tried ? a.tried.map((c) => [u, c]) : [])).slice(-6);
+  return rows.length ? `<div class="small muted ex-tries">${t('exTried')}: ${rows.map(([u, c]) => `<span class="ex-try">${esc(c)} ✗ ${esc(pName(u))}</span>`).join(' ')}</div>` : '';
+}
+
 /* ----- Bible Pictionary ----- */
 const PC_HEX = { ink: '#1B1530', ruby: '#B3261E', sapphire: '#2E5FBF', emerald: '#2B8A60' };
 const pcPath = (rd) => `${roomPath()}/answers/${rd.i}/${(rd.data || {}).drawer}/s`;
@@ -517,6 +530,17 @@ function hostPlay() {
     else secs.push(['cnt', answeredRow(ans)]);
   }
 
+  if (rd.game === 'ex') {
+    const f = (rd.data || {}).facts || [], code = G.exCode(f);
+    secs.push(['stage', exStage(rd)]);
+    if (reveal) {
+      secs.push(['code', `<div class="card col" style="gap:10px;align-items:center"><span class="lbl">${res.first ? t('exOpenedBy', { n: esc(pName(res.first)) }) : t('exStillLocked')}</span><div class="wd-row wd-big" style="--n:${code.length}">${code.split('').map((c) => `<span class="wd-t ${res.first ? 'g' : 'x'}">${c}</span>`).join('')}</div></div>`]);
+      secs.push(['facts', `<div class="card list">${f.map((x, j) => { const [q, n, ref] = C().ESCAPE[x]; return `<div class="li"><span class="ex-d">${j + 1}</span><span class="grow col" style="gap:2px"><span class="small">${esc(q)}</span><span class="small muted">${n} · ${esc(ref)}</span></span><span class="li-name">${n % 10}</span></div>`; }).join('')}</div>`]);
+    } else {
+      secs.push(['hint', `<div class="card col" style="gap:8px;align-items:center;text-align:center"><span class="card-title">${t('exTalk')}</span><span class="small muted">${t('exDigitsN', { n: code.length })}</span>${exTries(ans)}</div>`]);
+    }
+  }
+
   if (rd.game === 'pc') {
     const e = C().EMOJI[item], dr = players()[(rd.data || {}).drawer] || {};
     secs.push(['who', `<div class="row" style="gap:10px;align-items:center">${avatar(dr, 'sm')}<span class="card-title">${esc(t('pcDraws', { n: dr.name || t('someone') }))}</span></div>`]);
@@ -608,13 +632,13 @@ function breakdown(uid, rd) {
 function strip(b) {
   return `<span class="strip" aria-hidden="true">${b.cells.map((c) => `<span class="rc ${c.first ? 'first' : ''} ${c.played ? '' : 'skip'}" style="--h:${c.first ? 100 : c.pts >= 200 ? 66 : c.pts ? 40 : 12}%"></span>`).join('')}</span>`;
 }
-const ruleLine = (rd) => `<p class="small muted" style="margin:0">${t(['vs', 'bk', 'hg', 'em', 'wd'].includes(rd.game) ? 'ruleRank' : 'ruleTrivia')}</p>`;
+const ruleLine = (rd) => `<p class="small muted" style="margin:0">${t(rd.game === 'ex' ? 'ruleEx' : rd.game === 'hu' ? 'ruleHu' : rd.game === 'pc' ? 'rulePc' : ['vs', 'bk', 'hg', 'em', 'wd'].includes(rd.game) ? 'ruleRank' : 'ruleTrivia')}</p>`;
 
 function hostResults() {
   const rows = L.standings(players());
   const rd = S.room.round || {};
   const top = rows[0];
-  const line = top ? t('takesIt', { n: esc(top.name) }) : t('gameOver');
+  const line = rd.game === 'ex' ? esc(exSummary(rd)) : top ? t('takesIt', { n: esc(top.name) }) : t('gameOver');
   let sub = '';
   if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, t('inTribes')); }
   if (rd.game === 'fv' || rd.game === 'hu') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
@@ -622,7 +646,7 @@ function hostResults() {
     cls: '',
     secs: [
       ['h', `<div class="col center"><span class="lbl">${t('tonight')}</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
-      ['pod', podiumHtml(rows)],
+      ['pod', rd.game === 'ex' ? '' : podiumHtml(rows)],
       ['board', `<div class="card list"><span class="lbl">${t('byRound')}</span>${rows.map((p, i) => { const b = breakdown(p.uid, rd);
         return `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="col grow" style="gap:3px;min-width:0"><span class="li-name">${esc(p.name)}</span><span class="small muted">${t('nFirsts', { n: b.firsts })} · ${t('roundsOf', { a: b.scored, b: b.played })}</span>${strip(b)}</span><span class="li-det strong">${p.score}</span></div>`; }).join('')}${ruleLine(rd)}</div>`],
       ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="toLobby">${t('anotherGame')}</button><button class="btn btn-p" data-act="again">${t('playAgain')}</button></div>`]
@@ -744,6 +768,24 @@ function playerPlay() {
     }
   }
 
+  if (rd.game === 'ex') {
+    const f = (rd.data || {}).facts || [], code = G.exCode(f), list2 = playerList();
+    const mineF = f.map((x, j) => [x, j]).filter(([, j]) => G.exHolder(list2, rd.i, j) === uid);
+    const opened = Object.values(ans).some((a) => a && a.ok);
+    secs.push(['h', head(t('exLock', { i: rd.i + 1, n: rd.n }), esc(t('exS' + ((rd.i % G.EX_STAGES) + 1))), reveal ? null : rd.endsAt, 'tpill')]);
+    if (reveal) {
+      secs.push(['n', res.first ? note(true, t('exOpen'), `+${myPts} · ${esc(t('exOpenedBy', { n: pName(res.first) }))}`) : note(false, t('exStillLocked'), t('exCodeWas', { c: code }))]);
+      secs.push(['facts', `<div class="card list">${f.map((x, j) => { const [q, n] = C().ESCAPE[x]; return `<div class="li"><span class="ex-d">${j + 1}</span><span class="grow small">${esc(q)}</span><span class="li-name">${n}</span></div>`; }).join('')}</div>`]);
+    } else {
+      secs.push(['clues', `<div class="card col" style="gap:8px"><span class="lbl">${t('exYourClues')}</span>${mineF.length ? `<div class="list">${mineF.map(([x, j]) => exClue(x, j)).join('')}</div>` : `<span class="small muted">${t('exNoClues')}</span>`}<span class="small muted">${t('exAskTeam', { n: code.length })}</span></div>`]);
+      if (!opened) {
+        const cur = loc.excode || '', locked = (loc.exLockUntil || 0) > Date.now();
+        secs.push(['tries', exTries(ans)]);
+        secs.push(['code', `<div class="grow"></div><div class="wd-row ex-slots" style="--n:${code.length}">${[...Array(code.length).keys()].map((k) => `<span class="wd-t ${cur[k] ? 'typed' : ''}">${cur[k] || ''}</span>`).join('')}</div>${loc.exWrong ? `<p class="small wd-msg" role="status">${t('exWrong')}</p>` : ''}<div class="ex-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="hkey" data-act="exKey" data-c="${d}" ${locked ? 'disabled' : ''}>${d}</button>`).join('')}<button class="hkey" data-act="exDel" ${locked ? 'disabled' : ''} aria-label="${t('wdDelete')}">⌫</button><button class="hkey" data-act="exKey" data-c="0" ${locked ? 'disabled' : ''}>0</button><button class="hkey ex-open" data-act="exTry" ${locked || cur.length < code.length ? 'disabled' : ''}>${t('exOpenB')}</button></div>`]);
+      } else secs.push(['n', note(true, t('exOpen'), t('exOpenedBy', { n: pName((Object.entries(ans).find(([, a]) => a && a.ok) || [])[0]) }))]);
+    }
+  }
+
   if (rd.game === 'pc') {
     const e = C().EMOJI[item], drawer = (rd.data || {}).drawer, dr = players()[drawer] || {}, mineTurn = drawer === uid;
     secs.push(['h', head(esc(mineTurn && !reveal ? t('pcYouDraw') : t('pcDraws', { n: dr.name || t('someone') })), det, reveal ? null : rd.endsAt, 'tpill')]);
@@ -855,7 +897,7 @@ function playerResults() {
   return {
     cls: '',
     secs: [
-      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center"><span class="lbl">${t('youFinished')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span><span class="title sm">${t('nPoints', { n: me.score })}</span></div>`],
+      ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center">${rd.game === 'ex' ? `<span class="lbl">${t('exTogether')}</span><span class="title md">${esc(exSummary(rd))}</span>` : `<span class="lbl">${t('youFinished')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span>`}<span class="title sm">${t('nPoints', { n: me.score })}</span></div>`],
       ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">${t('points')}</span></div><div class="stat"><span class="stat-v">${b.firsts}</span><span class="stat-l">${t('firsts')}</span></div><div class="stat"><span class="stat-v">${me.correct || 0}/${b.played}</span><span class="stat-l">${t('roundsScored')}</span></div></div>`],
       ['strip', `<div class="card col" style="gap:8px"><span class="lbl">${t('byRound')}</span>${strip(b)}${ruleLine(rd)}</div>`],
       ['wait', `<p class="small muted center" style="margin:0;text-align:center">${t('hostCanStart')}</p><button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`]
@@ -1001,7 +1043,7 @@ function hostStartGame() {
   const meta = S.room.meta, g = meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
   let seq;
   if (g === 'bk') seq = L.pickSeq(contentLength(g), set.rounds);
-  else if (g === 'hu') seq = [...Array(set.rounds).keys()]; // turns; the cards are dealt at each turn
+  else if (g === 'hu' || g === 'ex') seq = [...Array(set.rounds).keys()]; // turns / locks; cards and clues are dealt at each one
   else {
     const all = S.seen || loadSeen(), key = [g, q.book || 'all', q.level].join('|');
     const r = P.pickFresh(poolFor(g, q), set.rounds, all[key] || []);
@@ -1020,6 +1062,12 @@ function hostStartGame() {
 }
 function hostStartRound(i) {
   const rd = S.room.round, now = S.net.now();
+  if (rd.game === 'ex') {
+    const q = { book: rd.book || '', level: rd.level || 'm' }, all = S.seen || loadSeen(), key = ['ex', q.book || 'all', q.level].join('|');
+    const r = P.pickFresh(poolFor('ex', q), G.exDigits(q.level), all[key] || []);
+    saveSeen({ ...all, [key]: r.seen });
+    return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { facts: r.seq }, res: null });
+  }
   if (rd.game === 'pc') return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { drawer: G.pcDrawer(playerList(), i) }, res: null });
   if (rd.game === 'hu') {
     const who = G.huGuesser(playerList(), i);
@@ -1036,6 +1084,7 @@ function scoreRound(rd, ans) {
   if (rd.game === 'em') return L.scoreEmoji(ans);
   if (rd.game === 'wd') return L.scoreWordle(ans);
   if (rd.game === 'pc') return L.scorePictionary(ans, (rd.data || {}).drawer);
+  if (rd.game === 'ex') return L.scoreEscape(ans, rd.startedAt, rd.secs, activeUids());
   if (rd.game === 'hu') { const gu = (rd.data || {}).guesser, got = ((ans[gu] || {}).got || []).length; return got ? { pts: { [gu]: got * 100 }, order: [gu], first: null } : { pts: {}, order: [], first: null }; }
   const right = G.correctOption(rd.game, item, rd.data || {});
   return L.scoreTrivia(ans, right);
@@ -1085,6 +1134,7 @@ function hostTick() {
     const ans = ((r.answers || {})[rd.i]) || {};
     const all = L.allDone(rd.game, ans, activeUids().filter((u) => !(rd.game === 'pc' && u === (rd.data || {}).drawer)));
     if (now >= rd.endsAt) hostStep(hostReveal);
+    else if (rd.game === 'ex' && Object.values(ans).some((a) => a && a.ok)) hostStep(hostReveal);
     else if (all && rd.game === 'tt') {
       // Two Truths: votes can change, so wait 3 s after everyone has voted (any change restarts it).
       const sig = rd.i + ':' + JSON.stringify(ans);
@@ -1129,6 +1179,10 @@ function botsPlay(rd, now) {
       const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
       if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
       if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, mw()), f: 1, t: n, w: mw(), out: true });
+    } else if (rd.game === 'ex') {
+      const code = G.exCode(data.facts || []), wrong = code.split('').map((c) => (Number(c) + 1) % 10).join('');
+      if (elapsed >= plan.at / 2) send('try', { tried: [wrong] });
+      if (plan.ok && elapsed >= plan.at) send('ok', { tried: [wrong], ok: true, at: S.net.TS });
     } else if (rd.game === 'pc' && data.drawer === p.uid) {
       // A practice bot draws a few squiggles so the board isn't empty.
       const k = Math.min(6, Math.floor(elapsed / 3500)), r = L.seeded(key + k);
@@ -1188,6 +1242,20 @@ function submitGuess() {
     const el = document.getElementById('guess'); if (el) el.blur();
     write(S.net.set(myAnsPath(), { ok: true, at: S.net.TS, tries: loc.tries }));
   } else { loc.guessWrong = true; vibrate([20, 40, 20]); }
+  paint();
+}
+function exTry() {
+  const rd = S.room.round;
+  if (!rd || rd.game !== 'ex' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
+  const loc = ensureLocal(rd), code = G.exCode((rd.data || {}).facts || []), mine = (((S.room.answers || {})[rd.i]) || {})[S.net.uid] || {};
+  if ((loc.excode || '').length !== code.length || (loc.exLockUntil || 0) > Date.now()) return;
+  if (loc.excode === code) { vibrate(40); write(S.net.set(myAnsPath(), { ...mine, ok: true, at: S.net.TS })); }
+  else {
+    vibrate([20, 40, 20]); loc.exWrong = true; loc.exLockUntil = Date.now() + L.EX_WRONG_MS;
+    setTimeout(paint, L.EX_WRONG_MS + 50);
+    write(S.net.set(myAnsPath(), { ...mine, tried: [...(mine.tried || []), loc.excode] }));
+  }
+  loc.excode = '';
   paint();
 }
 function huMark(ok) {
@@ -1403,6 +1471,9 @@ const A = {
     write(S.net.set(myAnsPath(), { a: Number(el.dataset.i), at: S.net.TS }));
   },
   letter: (el) => guessLetter(el.dataset.c),
+  exKey: (el) => { const rd = S.room.round; if (!rd || rd.game !== 'ex' || rd.phase !== 'play') return; const loc = ensureLocal(rd), n = G.exDigits(rd.level); loc.exWrong = false; if ((loc.excode || '').length < n) loc.excode = (loc.excode || '') + el.dataset.c; },
+  exDel: () => { const rd = S.room.round; if (!rd || rd.game !== 'ex') return; const loc = ensureLocal(rd); loc.excode = (loc.excode || '').slice(0, -1); },
+  exTry: () => exTry(),
   pcInk: (el) => { S.pcInk = el.dataset.v; },
   pcW: (el) => { S.pcW = Number(el.dataset.v); },
   pcUndo: () => { const rd = pcLive(); if (!rd) return; const st = pcStrokes(rd); if (st.length) write(S.net.set(`${pcPath(rd)}/${st[st.length - 1].k}`, null)); },

@@ -482,3 +482,13 @@ html[data-vlang="kn"] :is(.verse, .piece, .zone, .opt-t.long) { letter-spacing: 
 .pc-tools { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pc-ink { width: 36px; height: 36px; border-radius: 50%; background: var(--ink); border: 3px solid var(--color-surface); box-shadow: 0 0 0 2px var(--color-border); padding: 0; }
 .pc-ink.on { box-shadow: 0 0 0 3px var(--color-text); }
+
+/* ----- Exodus Escape ----- */
+.ex-d { width: 28px; height: 28px; flex: none; display: grid; place-items: center; border-radius: 50%; background: var(--fill-strong); color: var(--on-fill-strong); font-weight: 700; font-size: 14px; }
+.ex-pad { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.ex-pad .hkey { min-height: 52px; font-size: 22px; }
+.ex-pad .ex-open { background: var(--fill-strong); color: var(--on-fill-strong); border-color: var(--fill-strong); font-size: 17px; }
+.ex-pad .hkey:disabled { opacity: .45; }
+.ex-slots { --tile: 52px; }
+.ex-try { white-space: nowrap; margin-right: 6px; }
+.ex-tries { text-align: center; }

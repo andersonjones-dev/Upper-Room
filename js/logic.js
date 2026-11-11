@@ -19,7 +19,8 @@ export const GAMES = [
     how: 'Everyone guesses the same Bible word on their own phone, with six tries. Coloured tiles show letters in the right place, and letters in the word but in the wrong place. Fewest guesses wins; time breaks ties.' },
   { id: 'em', n: '09', sym: 'Em', name: 'Emoji Bible', mode: 'Buzz', c: 'ruby', ready: true,
     how: 'Guess the Bible story from the emojis. Type your answer; the first right answers score most.' },
-  { id: 'ex', n: '10', sym: 'Ex', name: 'Exodus Escape', mode: 'Co-op', c: 'sapphire' },
+  { id: 'ex', n: '10', sym: 'Ex', name: 'Exodus Escape', mode: 'Co-op', c: 'sapphire', ready: true,
+    how: 'Everyone works together to escape Egypt, one lock at a time. Each phone holds different clues; every clue gives one digit of the code. Talk, work out the code, and enter it before time runs out. A wrong code locks that phone for 3 seconds.' },
   { id: 'tr', n: '11', sym: '12', name: 'Twelve Tribes', mode: 'Teams', c: 'amethyst', ready: true, teams: true,
     how: 'Two teams. The first right answer to each question claims land on the map for their team.' },
   { id: 'hg', n: '12', sym: 'Hg', name: 'Bible Hangman', mode: 'Race', c: 'teal', ready: true,
@@ -38,7 +39,8 @@ export const SETTINGS = {
   tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } },
   wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } },
   hu: { rounds: [4, 6, 8], secs: [45, 60, 90], def: { rounds: 4, secs: 60 } },
-  pc: { rounds: [3, 5, 8], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } }
+  pc: { rounds: [3, 5, 8], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } },
+  ex: { rounds: [3, 5], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
@@ -138,6 +140,16 @@ export function scoreWordle(ans) {
   ok.forEach(([u], i) => { pts[u] = rankPoints(i); order.push(u); });
   return { pts, order, first: order[0] || null };
 }
+
+/** Exodus Escape: when the lock opens, everyone playing scores the same: 300 in the first third of the time, then 200, then 100. */
+export function scoreEscape(ans, startedAt, secs, uids) {
+  const ok = Object.entries(ans || {}).filter(([, a]) => a && a.ok && typeof a.at === 'number').sort((x, y) => x[1].at - y[1].at);
+  if (!ok.length) return { pts: {}, order: [], first: null };
+  const frac = (ok[0][1].at - startedAt) / (secs * 1000), p = frac <= 1 / 3 ? 300 : frac <= 2 / 3 ? 200 : 100;
+  const pts = {}; uids.forEach((u) => { pts[u] = p; });
+  return { pts, order: [ok[0][0]], first: ok[0][0] };
+}
+export const EX_WRONG_MS = 3000;
 
 /** Bible Pictionary: guessers ranked by time like Emoji Bible; the artist gets 100 for each right guess, up to 300. */
 export function scorePictionary(ans, drawer) {

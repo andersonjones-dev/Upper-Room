@@ -2,7 +2,7 @@
 // phones can play the same round. Kannada lists match the English ones item for item.
 import * as EN from './content.js';
 import { KN_VERSES } from './kn/verses.js';
-import { KN_BOOKS, KN_TRIBES, KN_TRIVIA, KN_EMOJI, KN_HANGMAN, KN_TWO_TRUTHS, KN_TIMELINE, KN_WORDLE } from './kn/content.js';
+import { KN_BOOKS, KN_TRIBES, KN_TRIVIA, KN_EMOJI, KN_HANGMAN, KN_TWO_TRUTHS, KN_TIMELINE, KN_WORDLE, KN_ESCAPE } from './kn/content.js';
 import { getLang, getVerseLang, CAT_KN } from './i18n.js';
 
 const ALIAS = { Psalm: 'Psalms', 'Song of Songs': 'Song of Solomon' };
@@ -32,6 +32,7 @@ function buildKn() {
     }),
     TIMELINE: EN.TIMELINE.map((x, i) => [KN_TIMELINE[i], refKn(x[1])]),
     WORDLE: EN.WORDLE.map((x, i) => [KN_WORDLE[i], x[1], x[2]]),
+    ESCAPE: EN.ESCAPE.map((x, i) => [KN_ESCAPE[i], x[1], refKn(x[2]), x[3]]),
     BOOKS: KN_BOOKS, TRIBES: KN_TRIBES
   };
 }
