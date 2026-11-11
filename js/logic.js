@@ -13,7 +13,8 @@ export const GAMES = [
   { id: 'tl', n: '06', sym: 'Tl', name: 'Bible Timeline', mode: 'Place', c: 'teal', ready: true,
     how: 'Four events are shown in Bible order. Tap the gap where the new event belongs. First right answer gets a bonus.' },
   { id: 'hu', n: '07', sym: 'Hu', name: 'Heads Up', mode: 'Teams', c: 'amber' },
-  { id: 'wd', n: '08', sym: 'Wd', name: 'Bible Wordle', mode: 'Daily', c: 'emerald' },
+  { id: 'wd', n: '08', sym: 'Wd', name: 'Bible Wordle', mode: 'Race', c: 'emerald', ready: true,
+    how: 'Everyone guesses the same Bible word on their own phone, with six tries. Coloured tiles show letters in the right place, and letters in the word but in the wrong place. Fewest guesses wins; time breaks ties.' },
   { id: 'em', n: '09', sym: 'Em', name: 'Emoji Bible', mode: 'Buzz', c: 'ruby', ready: true,
     how: 'Guess the Bible story from the emojis. Type your answer; the first right answers score most.' },
   { id: 'ex', n: '10', sym: 'Ex', name: 'Exodus Escape', mode: 'Co-op', c: 'sapphire' },
@@ -32,7 +33,8 @@ export const SETTINGS = {
   hg: { rounds: [3, 5, 8], secs: [45, 60, 90], def: { rounds: 5, secs: 60 } },
   tt: { rounds: [4, 6, 8], secs: [20, 30, 45], def: { rounds: 6, secs: 30 } },
   bk: { rounds: [3, 5, 8], secs: [30, 45, 60], def: { rounds: 5, secs: 45 } },
-  tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } }
+  tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } },
+  wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
@@ -124,6 +126,15 @@ export function scoreScramble(ans) {
   return { pts, order, first: order[0] || null };
 }
 
+/** Bible Wordle: solvers ranked by fewest guesses, then time. */
+export function scoreWordle(ans) {
+  const ok = Object.entries(ans || {}).filter(([, a]) => a && a.ok && typeof a.ms === 'number' && a.n > 0)
+    .sort(([u, a], [v, b]) => a.n - b.n || a.ms - b.ms || (u < v ? -1 : 1));
+  const pts = {}, order = [];
+  ok.forEach(([u], i) => { pts[u] = rankPoints(i); order.push(u); });
+  return { pts, order, first: order[0] || null };
+}
+
 /** Emoji Bible: rank correct answers by server time. */
 export function scoreEmoji(ans) {
   const ok = ranked(Object.entries(ans || {}).filter(([, a]) => a && a.ok && typeof a.at === 'number'), (a) => a.at);
@@ -179,7 +190,7 @@ export function allDone(game, ans, uids) {
     const a = ans && ans[u];
     if (!a) return false;
     if (['tr', 'fv', 'tl', 'tt'].includes(game)) return typeof a.a === 'number';
-    if (game === 'hg') return !!(a.ok || a.out);
+    if (game === 'hg' || game === 'wd') return !!(a.ok || a.out);
     return !!a.ok;
   });
 }
@@ -223,6 +234,7 @@ export function botPlan(game, roundKey, uid, secs, correct = 0) {
     return { ok, at, a: ok ? correct : (correct + 1 + Math.floor(r() * (n - 1))) % n };
   }
   if (game === 'hg') return { ok: r() < 0.6, at: Math.round((0.3 + 0.55 * r()) * span), wrong: Math.floor(r() * 4) };
+  if (game === 'wd') return { ok: r() < 0.7, at: Math.round((0.3 + 0.6 * r()) * span), n: 3 + Math.floor(r() * 4) };
   return { ok: r() < 0.7, at: Math.round((0.2 + 0.6 * r()) * span) };
 }
 

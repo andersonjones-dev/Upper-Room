@@ -289,3 +289,30 @@ test('hard mode: stray verse pieces, fewer lives, shorter timer', async () => {
   assert.equal(G2.livesFor('h'), 4); assert.equal(G2.livesFor('m'), 6);
   assert.equal(G2.secsFor(60, 'h'), 45); assert.equal(G2.secsFor(20, 'h'), 15); assert.equal(G2.secsFor(30, 'e'), 30);
 });
+
+test('Bible Wordle rules and words', async () => {
+  const G2 = await import('../js/games.js');
+  const T = await import('../js/text.js');
+  const P = await import('../js/pool.js');
+  const C = await import('../js/content.js');
+  const sc = (g, a) => G2.wdScore(g.split(''), a.split(''));
+  assert.equal(sc('DAVID', 'DAVID'), 'ggggg');
+  assert.equal(sc('AARON', 'HAMAN'), 'ygxxg'); assert.equal(sc('ABBAS', 'HAMAN'), 'yxxgx');
+  assert.equal(sc('SLING', 'CROWN'), 'xxxyx');
+  assert.equal(G2.wdValid('CROWN'.split(''), 'HAMAN'.split('')), true);
+  assert.equal(G2.wdValid('QQQQQ'.split(''), 'HAMAN'.split('')), false);
+  const EN = T.content('en'), KN = T.content('kn');
+  assert.equal(KN.WORDLE.length, EN.WORDLE.length);
+  EN.WORDLE.forEach(([w], i) => {
+    assert.match(w, /^[A-Z]{5}$/);
+    assert.ok(G2.wdValid(w.split(''), w.split('')));
+    const k = G2.wdTiles(KN.WORDLE[i][0]);
+    assert.ok(k.length >= 3 && k.length <= 5, 'kannada tiles ' + KN.WORDLE[i][0]);
+    const keys = G2.wdKeys(i, KN);
+    assert.equal(keys.length, 24); assert.equal(new Set(keys).size, 24);
+    k.forEach((a) => assert.ok(keys.includes(a), 'key ' + a));
+  });
+  for (const b of P.QUIZ_BOOKS) assert.ok(P.eligible('wd', EN.WORDLE.length, C, { book: b, level: 'h' }).length >= 4, 'wordle ' + b);
+  const r = L.scoreWordle({ a: { ok: true, n: 4, ms: 9000 }, b: { ok: true, n: 3, ms: 30000 }, c: { out: true, n: 6 }, d: { ok: true, n: 4, ms: 5000 } });
+  assert.deepEqual(r.order, ['b', 'd', 'a']);
+});

@@ -344,6 +344,30 @@ function hangSlots(word, guessed, show, markMissed) {
 const mw = () => G.livesFor(((S.room || {}).round || {}).level);
 const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: mw() - wrong, b: mw() })}">${[...Array(mw()).keys()].map((k) => `<span class="life ${k < mw() - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
 
+/* ----- Bible Wordle ----- */
+function wdGrid(rows, cur, answer, live) {
+  const n = answer.length, out = [];
+  for (let r = 0; r < G.WD_TRIES; r++) {
+    let cells;
+    if (r < rows.length) { const sc = G.wdScore(rows[r], answer); cells = rows[r].map((c, i) => `<span class="wd-t ${sc[i]}" aria-label="${esc(c)} ${t(sc[i] === 'g' ? 'wdRight' : sc[i] === 'y' ? 'wdIn' : 'wdNot')}">${esc(c)}</span>`); }
+    else if (r === rows.length && live) cells = [...Array(n).keys()].map((i) => `<span class="wd-t ${cur[i] ? 'typed' : ''} ${i === cur.length ? 'next' : ''}">${esc(cur[i] || '')}</span>`);
+    else cells = [...Array(n).keys()].map(() => '<span class="wd-t"></span>');
+    out.push(`<div class="wd-row">${cells.join('')}</div>`);
+  }
+  return `<div class="wd-grid ${G.isKannada(answer.join('')) ? 'wd-kn' : ''}" style="--n:${n}">${out.join('')}</div>`;
+}
+const wdMini = (r) => `<span class="wd-mini">${String(r || '').split('').map((c) => `<i class="${c}"></i>`).join('')}</span>`;
+function wdKeyboard(item, rows, answer) {
+  const st = G.wdKeyState(rows, answer), key = (c) => `<button class="hkey wd-k ${st[c] || ''}" data-act="wdKey" data-c="${esc(c)}">${esc(c)}</button>`;
+  const enter = `<button class="hkey wd-k wd-wide" data-act="wdEnter">${t('wdEnter')}</button>`;
+  const del = `<button class="hkey wd-k wd-wide" data-act="wdDel" aria-label="${t('wdDelete')}">⌫</button>`;
+  if (!G.isKannada(answer.join(''))) {
+    const r = G.WD_ROWS_EN;
+    return `<div class="wd-kb"><div class="wd-kr">${r[0].split('').map(key).join('')}</div><div class="wd-kr wd-kr2">${r[1].split('').map(key).join('')}</div><div class="wd-kr">${enter}${r[2].split('').map(key).join('')}${del}</div></div>`;
+  }
+  return `<div class="wd-kb"><div class="hkeys hkeys-kn">${G.wdKeys(item).map(key).join('')}</div><div class="wd-kr">${del}${enter}</div></div>`;
+}
+
 function hostPlay() {
   const rd = S.room.round;
   if (!rd) return { cls: '', secs: [['wait', `<p class="muted">${t('setting')}</p>`]] };
@@ -421,6 +445,17 @@ function hostPlay() {
     else secs.push(['cnt', answeredRow(ans)]);
   }
 
+  if (rd.game === 'wd') {
+    const answer = G.wdTiles(G.wdWord(item));
+    if (reveal) secs.push(['card', `<div class="card col" style="gap:10px;align-items:center"><span class="lbl">${t('theWord')}</span><div class="wd-row wd-big" style="--n:${answer.length}">${answer.map((c) => `<span class="wd-t g">${esc(c)}</span>`).join('')}</div></div>`]);
+    else secs.push(['card', `<div class="card col" style="gap:8px;align-items:center;text-align:center"><span class="card-title">${t('wdGuessing')}</span><span class="small muted">${t('wdTries', { n: G.WD_TRIES })}</span></div>`]);
+    const rows = list.map((p) => { const a = ans[p.uid] || {}, rs = a.r || [], k = a.n || rs.length;
+      return { p, done: !!a.ok, ms: a.ms || 0, k, pct: a.ok ? 100 : Math.round((k / G.WD_TRIES) * 100),
+        status: (a.ok ? t('wdSolvedN', { n: k, t: fmtT(a.ms || 0) }) : a.out ? t('outT') : k ? t('wdGuessN', { n: k, m: G.WD_TRIES }) : t('thinking')) + (rs.length ? ' ' + wdMini(rs[rs.length - 1]) : '') }; })
+      .sort((x, y) => (y.done ? 1e9 - y.k * 1e7 - y.ms : y.k) - (x.done ? 1e9 - x.k * 1e7 - x.ms : x.k));
+    secs.push(['race', reveal ? resultList(res.order, (uid) => t('wdSolvedN', { n: (ans[uid] || {}).n || 0, t: fmtT((ans[uid] || {}).ms || 0) }), res.pts) : raceRows(rows)]);
+  }
+
   if (rd.game === 'hg') {
     const [word, cat] = C().HANGMAN[item], total = G.hangLetters(word);
     secs.push(['card', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="cat-badge">${esc(cat)}</span><span class="small muted">${t('nLetters', { n: G.hangTokens(word).flat().length })}${word.includes(' ') ? t('nWords', { n: word.split(' ').length }) : ''}</span>${hangSlots(word, '', reveal)}</div>`]);
@@ -489,7 +524,7 @@ function breakdown(uid, rd) {
 function strip(b) {
   return `<span class="strip" aria-hidden="true">${b.cells.map((c) => `<span class="rc ${c.first ? 'first' : ''} ${c.played ? '' : 'skip'}" style="--h:${c.first ? 100 : c.pts >= 200 ? 66 : c.pts ? 40 : 12}%"></span>`).join('')}</span>`;
 }
-const ruleLine = (rd) => `<p class="small muted" style="margin:0">${t(['vs', 'bk', 'hg', 'em'].includes(rd.game) ? 'ruleRank' : 'ruleTrivia')}</p>`;
+const ruleLine = (rd) => `<p class="small muted" style="margin:0">${t(['vs', 'bk', 'hg', 'em', 'wd'].includes(rd.game) ? 'ruleRank' : 'ruleTrivia')}</p>`;
 
 function hostResults() {
   const rows = L.standings(players());
@@ -530,7 +565,8 @@ function ensureLocal(rd) {
   if (S.local && S.local.key === key) return S.local;
   const mine = (((S.room.answers || {})[rd.i]) || {})[S.net.uid] || {};
   S.local = { key, placed: [], wrong: 0, done: !!mine.ok, ms: mine.ms || 0, guessWrong: false, tries: 0,
-    guessed: mine.g || '', arr: [...Array(G.BOOK_SET).keys()], sel: null, bkMiss: null };
+    guessed: mine.g || '', arr: [...Array(G.BOOK_SET).keys()], sel: null, bkMiss: null,
+    wrows: (mine.gs || []).map((x) => x.split('|')), wcur: [], wmsg: '' };
   if (rd.game === 'vs' && mine.ok) S.local.placed = C().VERSES[itemOf(rd)].parts.map((_, i) => i);
   if (rd.game === 'bk' && mine.ok && rd.data) S.local.arr = [...Array(G.BOOK_SET).keys()].sort((a, b) => rd.data.order[a] - rd.data.order[b]);
   S.drafts.guess = '';
@@ -622,6 +658,18 @@ function playerPlay() {
       secs.push(['line', `<div class="col tline" style="gap:5px">${rows.join('')}</div>`]);
       if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
     }
+  }
+
+  if (rd.game === 'wd') {
+    const answer = G.wdTiles(G.wdWord(item)), rows = loc.wrows, last = rows[rows.length - 1] || [];
+    const solved = !!mine.ok || last.join('') === answer.join(''), out = !solved && (!!mine.out || rows.length >= G.WD_TRIES);
+    const live = !reveal && !solved && !out;
+    secs.push(['h', head(esc(gName(g)), det, reveal ? null : rd.endsAt, 'tpill')]);
+    secs.push(['grid', wdGrid(rows, loc.wcur, answer, live)]);
+    if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('wdSolvedN', { n: rows.length, t: fmtT(mine.ms || 0) })) : note(false, t('noPoints'), t('answerWasW', { w: esc(answer.join('')) }))]);
+    else if (solved) secs.push(['n', note(true, t('wdSolvedN', { n: rows.length, t: fmtT(mine.ms || loc.ms) }), t('watchTable'))]);
+    else if (out) secs.push(['n', note(false, t('wdOut'), t('itWasW', { w: esc(answer.join('')) }))]);
+    if (live) secs.push(['keys', `<div class="grow"></div><p class="small wd-msg" role="status">${esc(loc.wmsg || '')}</p>${wdKeyboard(item, rows, answer)}`]);
   }
 
   if (rd.game === 'hg') {
@@ -858,6 +906,7 @@ function scoreRound(rd, ans) {
   const item = rd.seq[rd.i];
   if (['vs', 'bk', 'hg'].includes(rd.game)) return L.scoreScramble(ans);
   if (rd.game === 'em') return L.scoreEmoji(ans);
+  if (rd.game === 'wd') return L.scoreWordle(ans);
   const right = G.correctOption(rd.game, item, rd.data || {});
   return L.scoreTrivia(ans, right);
 }
@@ -950,6 +999,12 @@ function botsPlay(rd, now) {
       const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
       if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
       if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, mw()), f: 1, t: n, w: mw(), out: true });
+    } else if (rd.game === 'wd') {
+      // Bots play the English word; only the colours are shown on the table.
+      const n = G.wdTiles(G.wdWord(item, content('en'))).length, k = plan.ok ? plan.n : G.WD_TRIES;
+      const rows = [...Array(k).keys()].map((j) => (plan.ok && j === k - 1 ? 'g'.repeat(n) : [...Array(n).keys()].map((x) => 'xxyg'[(x * 7 + j * 3 + k) % 4]).join('')));
+      if (elapsed >= plan.at / 2) send('half', { r: rows.slice(0, Math.ceil(k / 2)), n: Math.ceil(k / 2) });
+      if (elapsed >= plan.at) send('end', plan.ok ? { r: rows, n: k, ok: true, ms: plan.at } : { r: rows, n: k, out: true });
     } else if (plan.ok && elapsed >= plan.at) send('ok', { ok: true, at: S.net.TS, tries: 1 });
   });
 }
@@ -994,6 +1049,41 @@ function submitGuess() {
   } else { loc.guessWrong = true; vibrate([20, 40, 20]); }
   paint();
 }
+function wdLive() {
+  const rd = S.room && S.room.round;
+  if (!rd || rd.game !== 'wd' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return null;
+  const loc = ensureLocal(rd), answer = G.wdTiles(G.wdWord(rd.seq[rd.i]));
+  const last = loc.wrows[loc.wrows.length - 1] || [];
+  if (loc.done || last.join('') === answer.join('') || loc.wrows.length >= G.WD_TRIES) return null;
+  return { rd, loc, answer };
+}
+function wdType(c) {
+  const w = wdLive(); if (!w) return;
+  w.loc.wmsg = '';
+  if (c === null) w.loc.wcur.pop();
+  else if (w.loc.wcur.length < w.answer.length) w.loc.wcur.push(c);
+  paint();
+}
+function wdEnter() {
+  const w = wdLive(); if (!w) return;
+  const { rd, loc, answer } = w;
+  if (loc.wcur.length < answer.length) { loc.wmsg = t('wdShort'); vibrate([20, 40, 20]); paint(); return; }
+  if (!G.wdValid(loc.wcur, answer)) { loc.wmsg = t('wdNotWord'); vibrate([20, 40, 20]); paint(); return; }
+  loc.wrows.push(loc.wcur); loc.wcur = [];
+  const r = loc.wrows.map((g) => G.wdScore(g, answer)), ok = r[r.length - 1] === 'g'.repeat(answer.length);
+  const val = { gs: loc.wrows.map((g) => g.join('|')), r, n: loc.wrows.length };
+  if (ok) { loc.done = true; loc.ms = Math.max(0, S.net.now() - rd.startedAt); val.ok = true; val.ms = loc.ms; vibrate(40); }
+  else if (loc.wrows.length >= G.WD_TRIES) { val.out = true; vibrate([20, 40, 20]); }
+  write(S.net.set(myAnsPath(), val));
+  paint();
+}
+document.addEventListener('keydown', (ev) => {
+  if (ev.target && /INPUT|TEXTAREA/.test(ev.target.tagName)) return;
+  const w = wdLive(); if (!w || ev.metaKey || ev.ctrlKey) return;
+  if (ev.key === 'Enter') { ev.preventDefault(); wdEnter(); }
+  else if (ev.key === 'Backspace') { ev.preventDefault(); wdType(null); }
+  else if (/^[a-z]$/i.test(ev.key) && !G.isKannada(w.answer.join(''))) wdType(ev.key.toUpperCase());
+});
 function guessLetter(c) {
   const rd = S.room.round;
   if (!rd || rd.game !== 'hg' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
@@ -1164,6 +1254,9 @@ const A = {
     write(S.net.set(myAnsPath(), { a: Number(el.dataset.i), at: S.net.TS }));
   },
   letter: (el) => guessLetter(el.dataset.c),
+  wdKey: (el) => wdType(el.dataset.c),
+  wdDel: () => wdType(null),
+  wdEnter: () => wdEnter(),
   bkCheck: () => bkCheck(),
   update: () => { if (S.waitingSW) { S.updating = true; S.waitingSW.postMessage('skipWaiting'); } }
 };

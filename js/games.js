@@ -1,5 +1,6 @@
 // Per-game rules that don't touch the screen or network. Tested with `node --test`.
-import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS } from './content.js';
+import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS, WORDLE } from './content.js';
+import { WORDLE_OK } from './wordle-words.js';
 import { shuffle, scrambleOrder, seeded } from './logic.js';
 import { content } from './text.js';
 import { tlComparable } from './pool.js';
@@ -10,7 +11,7 @@ export const MAX_WRONG = 6;
 export const BOOK_SET = 6;
 
 export function contentLength(g) {
-  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, bk: 1000 }[g] || 1;
+  return { vs: VERSES.length, fv: VERSES.length, tr: TRIVIA.length, em: EMOJI.length, hg: HANGMAN.length, tt: TWO_TRUTHS.length, tl: TIMELINE.length, wd: WORDLE.length, bk: 1000 }[g] || 1;
 }
 
 /** Finish the Verse: the shown start and the ending to find. */
@@ -150,6 +151,44 @@ export function hangKeys(item, C = content()) {
 export function isDone(g, a) {
   if (!a) return false;
   if (CHOICE.includes(g)) return typeof a.a === 'number';
-  if (g === 'hg') return !!(a.ok || a.out);
+  if (g === 'hg' || g === 'wd') return !!(a.ok || a.out);
   return !!a.ok;
+}
+
+// ----- Bible Wordle -----
+export const WD_TRIES = 6;
+/** The word for this phone's language, as tiles: letters in English, aksharas in Kannada. */
+export const wdWord = (item, C = content()) => C.WORDLE[item][0];
+export const wdTiles = (word) => (isKannada(word) ? hangTokens(word).flat() : word.replace(/ /g, '').split(''));
+/** Colours for one guess: g = right place, y = in the word elsewhere, x = not in the word (Wordle's rules for repeats). */
+export function wdScore(guess, answer) {
+  const out = guess.map(() => 'x'), left = {};
+  answer.forEach((a, i) => { if (guess[i] === a) out[i] = 'g'; else left[a] = (left[a] || 0) + 1; });
+  guess.forEach((c, i) => { if (out[i] !== 'g' && left[c]) { out[i] = 'y'; left[c]--; } });
+  return out.join('');
+}
+/** Is this a word the game accepts? English guesses must be real (KJV) words; Kannada ones aren't checked. */
+export function wdValid(guess, answer) {
+  if (guess.length !== answer.length) return false;
+  if (isKannada(answer.join(''))) return true;
+  const w = guess.join('');
+  return w === answer.join('') || WORDLE_OK.has(w);
+}
+export const WD_ROWS_EN = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
+/** Kannada keys: the word's aksharas plus decoys from the other words, in full rows of 6. */
+export function wdKeys(item, C = content()) {
+  const word = wdWord(item, C);
+  if (!isKannada(word)) return WD_ROWS_EN.join('').split('');
+  const mine = [...new Set(wdTiles(word))];
+  const pool = [...new Set([...C.WORDLE.map((x) => x[0]), ...C.HANGMAN.map((x) => x[0])].flatMap((w) => (isKannada(w) ? wdTiles(w) : []))
+    .filter((a) => a !== ' ' && !mine.includes(a)))].sort();
+  const rand = seeded('wdkeys:' + item);
+  const decoys = shuffle(pool, rand).slice(0, 24 - mine.length);
+  return shuffle([...mine, ...decoys], rand);
+}
+/** Best colour seen for each key so far (g beats y beats x). */
+export function wdKeyState(rows, answer) {
+  const rank = { x: 1, y: 2, g: 3 }, st = {};
+  rows.forEach((g) => { const sc = wdScore(g, answer); g.forEach((c, i) => { if (!st[c] || rank[sc[i]] > rank[st[c]]) st[c] = sc[i]; }); });
+  return st;
 }

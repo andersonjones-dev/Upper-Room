@@ -23,6 +23,7 @@ export function tagOf(g, i, C) {
   if (g === 'hg') { const x = C.HANGMAN[i]; return { book: x[2] || '', d: x[3] || 'm' }; }
   if (g === 'tt') { const x = C.TWO_TRUTHS[i]; return { book: bookOf(x.t[0][1]), d: x.d || 'm' }; }
   if (g === 'tl') { const x = C.TIMELINE[i]; return { book: bookOf(x[1]), d: x[2] || 'm' }; }
+  if (g === 'wd') { const x = C.WORDLE[i]; return { book: x[1], d: x[2] || 'm' }; }
   return { book: '', d: 'm' };
 }
 

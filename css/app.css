@@ -443,3 +443,29 @@ html[data-vlang="kn"] :is(.verse, .piece, .zone, .opt-t.long) { letter-spacing: 
 .strip .rc.first { background: var(--color-primary); opacity: 1; }
 .strip .rc.skip { opacity: .15; }
 .card .strip { height: 22px; }
+
+/* ----- Bible Wordle ----- */
+:root { --wd-g: #2B8A60; --wd-y: #B07A12; --wd-x: #8A8798; --wd-on: #FFFFFF; }
+.glass { --wd-g: var(--color-quaternary); --wd-y: var(--color-primary); --wd-x: color-mix(in srgb, var(--color-text-muted) 70%, var(--color-bg)); --wd-on: #FFFDF8; }
+.cyber { --wd-g: var(--color-tertiary); --wd-y: var(--color-secondary); --wd-x: color-mix(in srgb, var(--color-text-muted) 60%, var(--color-bg)); --wd-on: #FFFFFF; }
+.cyber.dark { --wd-on: #0A0A0F; }
+.wd-grid { --tile: min(52px, calc((100vw - 80px) / var(--n)), calc((100dvh - 430px) / 6.6)); display: grid; gap: 6px; justify-content: center; }
+.wd-grid.wd-kn { --tile: min(58px, calc((100vw - 80px) / var(--n)), calc((100dvh - 470px) / 6.6)); }
+.wd-row { display: grid; grid-template-columns: repeat(var(--n), var(--tile, 44px)); gap: 6px; justify-content: center; }
+.wd-t { width: var(--tile, 44px); height: var(--tile, 44px); display: grid; place-items: center; border: 2px solid var(--color-border); border-radius: var(--radius-sm); font-family: var(--font-display); font-weight: 700; font-size: calc(var(--tile, 44px) * 0.5); line-height: 1; color: var(--color-text); background: var(--color-surface); text-transform: uppercase; }
+.wd-kn .wd-t { font-size: calc(var(--tile, 44px) * 0.42); }
+.wd-t.typed { border-color: var(--color-text); }
+.wd-t.next { box-shadow: inset 0 -3px 0 var(--color-text-muted); }
+.wd-t.g, .wd-k.g { background: var(--wd-g); border-color: var(--wd-g); color: var(--wd-on); }
+.wd-t.y, .wd-k.y { background: var(--wd-y); border-color: var(--wd-y); color: var(--wd-on); }
+.wd-t.x, .wd-k.x { background: var(--wd-x); border-color: var(--wd-x); color: var(--wd-on); }
+.wd-big { --tile: 52px; }
+.wd-kb { display: flex; flex-direction: column; gap: 6px; }
+.wd-kr { display: flex; gap: 5px; justify-content: center; }
+.wd-kr .wd-k { flex: 1 1 0; min-width: 0; min-height: 50px; font-size: 17px; }
+.wd-kr2 { padding: 0 5%; }
+.wd-kr .wd-wide { flex: 1.6 1 0; font-size: 14px; }
+.wd-msg { min-height: 1.4em; margin: 0; text-align: center; color: var(--color-text-muted); }
+.wd-mini { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
+.wd-mini i { width: 9px; height: 9px; border-radius: 2px; background: var(--wd-x); }
+.wd-mini i.g { background: var(--wd-g); } .wd-mini i.y { background: var(--wd-y); }

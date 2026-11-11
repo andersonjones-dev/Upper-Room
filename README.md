@@ -64,6 +64,7 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `js/content.js` | Hangman words (with book and difficulty), Two Truths sets, timeline events, the 66 books, the tribes. |
 | `js/verses.js` | 350 KJV verses (exact text, split into pieces), each tagged with a difficulty. |
 | `js/trivia.js` | Trivia questions with references. |
+| `js/wordle-words.js` | Every five-letter KJV word: the English guesses Bible Wordle accepts. |
 | `js/emoji.js` | Emoji puzzles and the answers each one accepts. |
 | `js/games.js` | Round set-up and right answers for each game, Hard-mode rules (tested). |
 | `js/pool.js` | Quiz book and difficulty filters, the no-repeat rule, and which timeline events can be shown together (tested). |
@@ -92,5 +93,6 @@ node --test tests/logic.test.mjs
 node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots        # first three games
 node tests/e2e-games.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # the five 1.2 games
 node tests/e2e-kn.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots     # mixed English/Kannada room, all 8 games
+node tests/e2e-wordle.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Bible Wordle, Kannada + English (small phone)
 node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # quiz book (Ruth) + Hard, no repeats
 ```
