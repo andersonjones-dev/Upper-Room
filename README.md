@@ -94,5 +94,6 @@ node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots        # first t
 node tests/e2e-games.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # the five 1.2 games
 node tests/e2e-kn.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots     # mixed English/Kannada room, all 8 games
 node tests/e2e-wordle.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Bible Wordle, Kannada + English (small phone)
+node tests/e2e-headsup.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Heads Up turns, teams, mixed languages
 node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # quiz book (Ruth) + Hard, no repeats
 ```

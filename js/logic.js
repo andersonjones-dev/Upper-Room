@@ -12,7 +12,8 @@ export const GAMES = [
     how: 'The start of a verse is shown. Pick the right ending on your phone. Every right answer scores for your team; first right gets a bonus.' },
   { id: 'tl', n: '06', sym: 'Tl', name: 'Bible Timeline', mode: 'Place', c: 'teal', ready: true,
     how: 'Four events are shown in Bible order. Tap the gap where the new event belongs. First right answer gets a bonus.' },
-  { id: 'hu', n: '07', sym: 'Hu', name: 'Heads Up', mode: 'Teams', c: 'amber' },
+  { id: 'hu', n: '07', sym: 'Hu', name: 'Heads Up', mode: 'Teams', c: 'amber', ready: true, teams: true,
+    how: 'Teams take turns. One player guesses; everyone else sees a Bible name or thing on their phone. The guesser’s team gives clues without saying the word. Got it or Pass, as many as you can before time runs out.' },
   { id: 'wd', n: '08', sym: 'Wd', name: 'Bible Wordle', mode: 'Race', c: 'emerald', ready: true,
     how: 'Everyone guesses the same Bible word on their own phone, with six tries. Coloured tiles show letters in the right place, and letters in the word but in the wrong place. Fewest guesses wins; time breaks ties.' },
   { id: 'em', n: '09', sym: 'Em', name: 'Emoji Bible', mode: 'Buzz', c: 'ruby', ready: true,
@@ -34,7 +35,8 @@ export const SETTINGS = {
   tt: { rounds: [4, 6, 8], secs: [20, 30, 45], def: { rounds: 6, secs: 30 } },
   bk: { rounds: [3, 5, 8], secs: [30, 45, 60], def: { rounds: 5, secs: 45 } },
   tl: { rounds: [5, 8, 12], secs: [15, 20, 30], def: { rounds: 8, secs: 20 } },
-  wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } }
+  wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } },
+  hu: { rounds: [4, 6, 8], secs: [45, 60, 90], def: { rounds: 4, secs: 60 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];

@@ -469,3 +469,9 @@ html[data-vlang="kn"] :is(.verse, .piece, .zone, .opt-t.long) { letter-spacing: 
 .wd-mini { display: inline-flex; gap: 2px; vertical-align: middle; margin-left: 4px; }
 .wd-mini i { width: 9px; height: 9px; border-radius: 2px; background: var(--wd-x); }
 .wd-mini i.g { background: var(--wd-g); } .wd-mini i.y { background: var(--wd-y); }
+
+/* ----- Heads Up ----- */
+.hu-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hu-b { min-height: 120px; font-size: 24px; }
+.hu-card { padding-top: 28px; padding-bottom: 28px; }
+.hu-word { font-family: var(--font-display); font-weight: 700; font-size: clamp(30px, 10vw, 46px); line-height: 1.1; overflow-wrap: anywhere; }

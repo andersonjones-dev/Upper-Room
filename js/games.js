@@ -192,3 +192,23 @@ export function wdKeyState(rows, answer) {
   rows.forEach((g) => { const sc = wdScore(g, answer); g.forEach((c, i) => { if (!st[c] || rank[sc[i]] > rank[st[c]]) st[c] = sc[i]; }); });
   return st;
 }
+
+// ----- Heads Up -----
+export const HU_CARDS = 40;
+const SMALL = new Set(['OF', 'THE', 'AND']);
+/** The word for a Heads Up card, in this phone's language ("ARK OF THE COVENANT" -> "Ark of the Covenant"). */
+export function huWord(i, C = content()) {
+  const w = C.HANGMAN[i][0];
+  if (isKannada(w)) return w;
+  return w.split(' ').map((x, k) => (k && SMALL.has(x) ? x.toLowerCase() : x[0] + x.slice(1).toLowerCase())).join(' ');
+}
+/** Who guesses on turn i: teams take turns (Ruby first), and each team's players take turns in join order. */
+export function huGuesser(list, i) {
+  const team = (tc) => list.filter((p) => (p.team === 'sapphire' ? 'sapphire' : 'ruby') === tc);
+  const r = team('ruby'), s = team('sapphire');
+  let mine = i % 2 === 0 ? r : s, k = Math.floor(i / 2);
+  if (!r.length || !s.length) { mine = r.length ? r : s; k = i; } // only one team: just take turns
+  if (!mine.length) return null;
+  const p = mine[k % mine.length];
+  return { uid: p.uid, team: p.team === 'sapphire' ? 'sapphire' : 'ruby' };
+}

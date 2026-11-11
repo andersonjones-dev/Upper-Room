@@ -259,7 +259,7 @@ function hostLobby() {
     ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">${t('roomCode')}</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', t('shareInvite'))}${iconBtn('qr', 'qr', t('showQr'))}${iconBtn('menu', 'menu', t('settings'))}</div></div>${roster}${botRow}</div>`],
     ['glbl', `<div class="row between"><h2 class="title sm">${t('pickGame')}</h2><span class="small muted">${list.length === 1 ? t('onePlayer') : t('nPlayers', { n: list.length })}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
-    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
+    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : game.id === 'hu' ? t('turns') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
     ['quiz', quizCard(meta, game)]
   ];
   if (game.teams) {
@@ -299,7 +299,7 @@ function hostControls(rd) {
 const OPT_C = ['ruby', 'sapphire', 'emerald', 'amber', 'teal'];
 const LETTERS = 'ABCDE';
 const itemOf = (rd) => rd.seq[rd.i];
-const roundOf = (rd) => t(['tr', 'fv', 'tt'].includes(rd.game) ? 'qOf' : 'rOf', { i: rd.i + 1, n: rd.n });
+const roundOf = (rd) => t(['tr', 'fv', 'tt'].includes(rd.game) ? 'qOf' : rd.game === 'hu' ? 'tOf' : 'rOf', { i: rd.i + 1, n: rd.n });
 const countIn = (ans) => Object.values(ans).filter((a) => typeof a.a === 'number').length;
 const answeredRow = (ans, label = t('answersIn')) => `<div class="row between"><span class="lbl">${label}</span><span class="small">${t('xOfY', { a: countIn(ans), b: activeUids().length })}</span></div>`;
 const teamTotals = (rd) => ({ ruby: ((rd.teamPts || {}).ruby) || 0, sapphire: ((rd.teamPts || {}).sapphire) || 0 });
@@ -343,6 +343,26 @@ function hangSlots(word, guessed, show, markMissed) {
 }
 const mw = () => G.livesFor(((S.room || {}).round || {}).level);
 const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: mw() - wrong, b: mw() })}">${[...Array(mw()).keys()].map((k) => `<span class="life ${k < mw() - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
+
+/* ----- Heads Up ----- */
+const huState = (rd) => { const d = rd.data || {}, a = (((S.room.answers || {})[rd.i]) || {})[d.guesser] || {}; return { d, k: a.k || 0, got: a.got || [], pass: a.pass || 0 }; };
+function huCardList(rd) {
+  const h = huState(rd);
+  if (!h.k) return `<p class="muted" style="margin:0">${t('huNone')}</p>`;
+  return `<div class="list">${h.d.cards.slice(0, h.k).map((c, j) => `<div class="li ${h.got.includes(j) ? 'is-done' : ''}"><span class="grow li-name">${esc(G.huWord(c))}</span><span class="li-det">${h.got.includes(j) ? '✓ ' + t('huGot') : t('huPassed')}</span></div>`).join('')}</div>`;
+}
+function huTeamBar(rd) {
+  const tt = teamTotals(rd), h = huState(rd), live = rd.phase === 'play' ? h.got.length * 100 : 0;
+  const add = (tc) => (h.d.team === tc ? live : 0);
+  return `<div class="grid2"><div class="team-col jf c-ruby"><span class="team-n">${teamName('ruby')}</span><span class="title md">${tt.ruby + add('ruby')}</span></div><div class="team-col jf c-sapphire"><span class="team-n">${teamName('sapphire')}</span><span class="title md">${tt.sapphire + add('sapphire')}</span></div></div>`;
+}
+function huTable(rd, reveal) {
+  const h = huState(rd), p = players()[h.d.guesser] || {};
+  const secs = [['who', `<div class="card col" style="gap:10px;align-items:center;text-align:center">${avatar(p, 'lg')}<span class="title md">${esc(t('huGuessing', { n: p.name || t('someone') }))}</span><span class="small muted">${teamName(h.d.team)} · ${t('huCorrectN', { n: h.got.length })}</span></div>`]];
+  secs.push(['teams', huTeamBar(rd)]);
+  if (reveal) secs.push(['cards', `<div class="card col" style="gap:8px"><span class="lbl">${t('huWords')}</span>${huCardList(rd)}</div>`]);
+  return secs;
+}
 
 /* ----- Bible Wordle ----- */
 function wdGrid(rows, cur, answer, live) {
@@ -445,6 +465,8 @@ function hostPlay() {
     else secs.push(['cnt', answeredRow(ans)]);
   }
 
+  if (rd.game === 'hu') huTable(rd, reveal).forEach((x) => secs.push(x));
+
   if (rd.game === 'wd') {
     const answer = G.wdTiles(G.wdWord(item));
     if (reveal) secs.push(['card', `<div class="card col" style="gap:10px;align-items:center"><span class="lbl">${t('theWord')}</span><div class="wd-row wd-big" style="--n:${answer.length}">${answer.map((c) => `<span class="wd-t g">${esc(c)}</span>`).join('')}</div></div>`]);
@@ -533,7 +555,7 @@ function hostResults() {
   const line = top ? t('takesIt', { n: esc(top.name) }) : t('gameOver');
   let sub = '';
   if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, t('inTribes')); }
-  if (rd.game === 'fv') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
+  if (rd.game === 'fv' || rd.game === 'hu') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
   return {
     cls: '',
     secs: [
@@ -658,6 +680,25 @@ function playerPlay() {
       secs.push(['line', `<div class="col tline" style="gap:5px">${rows.join('')}</div>`]);
       if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('answerInWait')}</div>`]);
     }
+  }
+
+  if (rd.game === 'hu') {
+    const h = huState(rd), p = players()[h.d.guesser] || {}, mineTurn = h.d.guesser === uid;
+    const myTeam = me.team === 'sapphire' ? 'sapphire' : 'ruby';
+    secs.push(['h', head(esc(gName(g)), det, reveal ? null : rd.endsAt, 'tpill')]);
+    if (reveal) {
+      secs.push(['n', note(h.got.length > 0, t('huCorrectN', { n: h.got.length }), esc(t('huTurnOf', { n: p.name || t('someone') })))]);
+      secs.push(['cards', `<div class="card col" style="gap:8px"><span class="lbl">${t('huWords')}</span>${huCardList(rd)}</div>`]);
+    } else if (mineTurn) {
+      secs.push(['you', `<div class="card col" style="gap:6px;align-items:center;text-align:center"><span class="title md">${t('huYouGuess')}</span><span class="small muted">${t('huYouHint')}</span><span class="big count">${h.got.length}</span><span class="lbl">${t('huCorrect')}</span></div>`]);
+      secs.push(['teams', huTeamBar(rd)]);
+      secs.push(['btns', `<div class="grow"></div><div class="hu-btns"><button class="btn btn-s hu-b" data-act="huPass">${t('huPass')}</button><button class="btn btn-p hu-b" data-act="huGot">${t('huGot')}</button></div>`]);
+    } else {
+      const c = h.d.cards[h.k], [, cat] = c === undefined ? [] : C().HANGMAN[c];
+      secs.push(['card', `<div class="card col hu-card" style="gap:10px;align-items:center;text-align:center"><span class="cat-badge">${esc(cat || '')}</span><span class="hu-word">${c === undefined ? '—' : esc(G.huWord(c))}</span><span class="small muted">${t('huCorrectN', { n: h.got.length })}</span></div>`]);
+      secs.push(['who', note(myTeam === h.d.team, esc(t(myTeam === h.d.team ? 'huClue' : 'huWatch', { n: p.name || t('someone') })), myTeam === h.d.team ? t('huClueHint') : t('huWatchHint'))]);
+    }
+    if (reveal || !mineTurn) secs.push(['teams', huTeamBar(rd)]);
   }
 
   if (rd.game === 'wd') {
@@ -882,6 +923,7 @@ function hostStartGame() {
   const meta = S.room.meta, g = meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
   let seq;
   if (g === 'bk') seq = L.pickSeq(contentLength(g), set.rounds);
+  else if (g === 'hu') seq = [...Array(set.rounds).keys()]; // turns; the cards are dealt at each turn
   else {
     const all = S.seen || loadSeen(), key = [g, q.book || 'all', q.level].join('|');
     const r = P.pickFresh(poolFor(g, q), set.rounds, all[key] || []);
@@ -900,6 +942,13 @@ function hostStartGame() {
 }
 function hostStartRound(i) {
   const rd = S.room.round, now = S.net.now();
+  if (rd.game === 'hu') {
+    const who = G.huGuesser(playerList(), i);
+    const q = { book: rd.book || '', level: rd.level || 'm' }, all = S.seen || loadSeen(), key = ['hu', q.book || 'all', q.level].join('|');
+    const r = P.pickFresh(P.eligible('hg', EN.HANGMAN.length, EN, q, 3), G.HU_CARDS, all[key] || []);
+    saveSeen({ ...all, [key]: r.seen });
+    return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { guesser: who ? who.uid : '', team: who ? who.team : 'ruby', cards: r.seq }, res: null });
+  }
   return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: G.roundData(rd.game, rd.seq[i], Math.random, { pool: poolFor(rd.game, { book: rd.book || '', level: rd.level || 'm' }), level: rd.level }), res: null });
 }
 function scoreRound(rd, ans) {
@@ -907,6 +956,7 @@ function scoreRound(rd, ans) {
   if (['vs', 'bk', 'hg'].includes(rd.game)) return L.scoreScramble(ans);
   if (rd.game === 'em') return L.scoreEmoji(ans);
   if (rd.game === 'wd') return L.scoreWordle(ans);
+  if (rd.game === 'hu') { const gu = (rd.data || {}).guesser, got = ((ans[gu] || {}).got || []).length; return got ? { pts: { [gu]: got * 100 }, order: [gu], first: null } : { pts: {}, order: [], first: null }; }
   const right = G.correctOption(rd.game, item, rd.data || {});
   return L.scoreTrivia(ans, right);
 }
@@ -928,7 +978,7 @@ function hostReveal() {
     const team = (players()[res.first] || {}).team === 'sapphire' ? 'sapphire' : 'ruby';
     L.tribesFor(rd.i, rd.n).forEach((t) => { upd[`round/claims/${t}`] = team; });
   }
-  if (rd.game === 'fv') {
+  if (rd.game === 'fv' || rd.game === 'hu') {
     const tp = rd.teamPts || {};
     upd['round/teamPts/ruby'] = (tp.ruby || 0) + teamAdd.ruby;
     upd['round/teamPts/sapphire'] = (tp.sapphire || 0) + teamAdd.sapphire;
@@ -999,6 +1049,11 @@ function botsPlay(rd, now) {
       const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
       if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
       if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, mw()), f: 1, t: n, w: mw(), out: true });
+    } else if (rd.game === 'hu') {
+      if (data.guesser !== p.uid) return;
+      const k = Math.min((data.cards || []).length, Math.floor(elapsed / 6500)), r = L.seeded(key);
+      const got = [...Array(k).keys()].filter(() => r() < 0.65);
+      send('k' + k, { k, got, pass: k - got.length });
     } else if (rd.game === 'wd') {
       // Bots play the English word; only the colours are shown on the table.
       const n = G.wdTiles(G.wdWord(item, content('en'))).length, k = plan.ok ? plan.n : G.WD_TRIES;
@@ -1048,6 +1103,14 @@ function submitGuess() {
     write(S.net.set(myAnsPath(), { ok: true, at: S.net.TS, tries: loc.tries }));
   } else { loc.guessWrong = true; vibrate([20, 40, 20]); }
   paint();
+}
+function huMark(ok) {
+  const rd = S.room.round;
+  if (!rd || rd.game !== 'hu' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
+  const h = huState(rd);
+  if (h.d.guesser !== S.net.uid || h.k >= (h.d.cards || []).length) return;
+  vibrate(ok ? 40 : [20, 40, 20]);
+  write(S.net.set(myAnsPath(), { k: h.k + 1, got: ok ? [...h.got, h.k] : h.got, pass: h.pass + (ok ? 0 : 1) }));
 }
 function wdLive() {
   const rd = S.room && S.room.round;
@@ -1254,6 +1317,8 @@ const A = {
     write(S.net.set(myAnsPath(), { a: Number(el.dataset.i), at: S.net.TS }));
   },
   letter: (el) => guessLetter(el.dataset.c),
+  huGot: () => huMark(true),
+  huPass: () => huMark(false),
   wdKey: (el) => wdType(el.dataset.c),
   wdDel: () => wdType(null),
   wdEnter: () => wdEnter(),

@@ -316,3 +316,15 @@ test('Bible Wordle rules and words', async () => {
   const r = L.scoreWordle({ a: { ok: true, n: 4, ms: 9000 }, b: { ok: true, n: 3, ms: 30000 }, c: { out: true, n: 6 }, d: { ok: true, n: 4, ms: 5000 } });
   assert.deepEqual(r.order, ['b', 'd', 'a']);
 });
+
+test('Heads Up: teams and players take turns guessing', async () => {
+  const G2 = await import('../js/games.js');
+  const list = [{ uid: 'a', team: 'ruby' }, { uid: 'b', team: 'sapphire' }, { uid: 'c', team: 'ruby' }, { uid: 'd', team: 'sapphire' }];
+  assert.deepEqual([0, 1, 2, 3, 4].map((i) => G2.huGuesser(list, i).uid), ['a', 'b', 'c', 'd', 'a']);
+  assert.deepEqual([0, 1, 2].map((i) => G2.huGuesser([{ uid: 'x', team: 'sapphire' }, { uid: 'y', team: 'sapphire' }], i).uid), ['x', 'y', 'x']);
+  assert.equal(G2.huGuesser([], 0), null);
+  assert.equal(G2.huWord(EN_IDX('ARK OF THE COVENANT')), 'Ark of the Covenant');
+});
+function EN_IDX(w) { return HANGMAN_WORDS.indexOf(w); }
+import { HANGMAN as HANGMAN_ALL } from '../js/content.js';
+const HANGMAN_WORDS = HANGMAN_ALL.map((x) => x[0]);
