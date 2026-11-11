@@ -38,12 +38,18 @@ Open the link in Safari → Share → **Add to Home Screen**.
 ---
 
 ## How a game runs
-1. The host taps **Host a room**, picks a game, rounds and seconds.
+1. The host taps **Host a room**, picks a game, rounds and seconds, and (for the whole room) a **Quiz book** and a **Difficulty**.
 2. Players tap **Join with a code** (or scan the QR / tap the shared link), type their name and pick a colour.
 3. The host taps **Start**. Rounds run on their own: intro, play, reveal, next. The host can also **Reveal now**, **Next now** or **End game**.
 4. At the end: podium on the table, each player's place on their own phone. **Play again** or **Another game**.
 
 **Testing on your own:** in the lobby, tap **Add practice bot** (up to 20 players in total). Bots are run by the host's phone: they answer at random times and get roughly two out of three right. **Remove bots** takes them all out.
+
+**Quiz book (for church Bible quizzes):** pick one of Genesis, Exodus, Joshua, Judges, Ruth, 1 Samuel, Esther, Daniel, Matthew, Luke, John or Acts, and every game uses only that book (Books Sort always uses all 66 books). **All books** mixes everything.
+
+**Difficulty:** every question, verse, word and event is tagged Easy, Medium or Hard. Easy uses the best-known ones; Medium adds the medium ones; Hard uses everything, takes a quarter off the timer, gives 4 Hangman lives instead of 6 and mixes 2 stray pieces from another verse into Verse Scramble.
+
+**No repeats:** the host's phone remembers what each game has already used (per quiz book and difficulty). Nothing comes up again until everything in that set has come up once; then a new cycle starts.
 
 If a phone drops out or the app is closed, opening it again rejoins the same room automatically.
 
@@ -55,18 +61,19 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `css/app.css` | How every part looks, per theme. |
 | `js/app.js` | Screens, rooms, and the host's game control. |
 | `js/logic.js` | Scoring and rules (tested). |
-| `js/content.js` | Hangman words, Two Truths sets, timeline events, the 66 books, the tribes. |
-| `js/verses.js` | The 64 KJV verses (exact text, split into pieces). |
+| `js/content.js` | Hangman words (with book and difficulty), Two Truths sets, timeline events, the 66 books, the tribes. |
+| `js/verses.js` | 350 KJV verses (exact text, split into pieces), each tagged with a difficulty. |
 | `js/trivia.js` | Trivia questions with references. |
 | `js/emoji.js` | Emoji puzzles and the answers each one accepts. |
-| `js/games.js` | Round set-up and right answers for each game (tested). |
+| `js/games.js` | Round set-up and right answers for each game, Hard-mode rules (tested). |
+| `js/pool.js` | Quiz book and difficulty filters, the no-repeat rule, and which timeline events can be shown together (tested). |
 | `js/config.js` | Firebase settings and the default theme. |
 | `js/net-firebase.js` | Talks to Firebase. |
 | `js/net-local.js` | Test-only stand-in for Firebase (`?net=local`). |
 | `js/qr.js` | Makes the join QR code. |
 | `js/i18n.js` | Every on-screen word in English and Kannada, and the language switch. |
 | `js/text.js` | Gives each phone the game content in its own language. |
-| `js/kn/verses.js` | The 64 verses in Kannada, split into the same number of pieces. |
+| `js/kn/verses.js` | The 350 verses in Kannada, split into the same number of pieces. |
 | `js/kn/content.js` | Kannada questions, emoji answers, hangman words, Two Truths, timeline, books and tribes. |
 | `sw.js` | Offline support and the "A new version is ready" bar. Bump `VERSION` on every change. |
 | `database.rules.json` | Who can write what in the database. |
@@ -85,4 +92,5 @@ node --test tests/logic.test.mjs
 node tests/e2e.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots        # first three games
 node tests/e2e-games.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # the five 1.2 games
 node tests/e2e-kn.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots     # mixed English/Kannada room, all 8 games
+node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # quiz book (Ruth) + Hard, no repeats
 ```

@@ -2,6 +2,7 @@
 import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS } from './content.js';
 import { shuffle, scrambleOrder, seeded } from './logic.js';
 import { content } from './text.js';
+import { tlComparable } from './pool.js';
 
 /** Games where everyone picks one option and the first right answer earns a bonus. */
 export const CHOICE = ['tr', 'fv', 'tl', 'tt'];
@@ -18,24 +19,63 @@ export function verseHalves(v) {
   return [v.parts.slice(0, k).join(' '), v.parts.slice(k).join(' ')];
 }
 
-/** Everything the host decides when a round starts, so every phone sees the same thing. */
-export function roundData(g, item, rand = Math.random) {
-  if (g === 'vs') return { order: scrambleOrder(VERSES[item].parts.length, rand) };
+/** Lives in Bible Hangman: six, or four on Hard. */
+export const livesFor = (level) => (level === 'h' ? 4 : MAX_WRONG);
+/** Round length: Hard takes a quarter off the timer. */
+export const secsFor = (secs, level) => (level === 'h' ? Math.max(10, Math.round((secs * 0.75) / 5) * 5) : secs);
+/** Verse Scramble on Hard mixes in this many pieces from another verse. */
+export const DECOYS = 2;
+
+/**
+ * Everything the host decides when a round starts, so every phone sees the same thing.
+ * opts.pool: the items the host's settings allow (quiz book, difficulty); opts.level: 'e' | 'm' | 'h'.
+ */
+export function roundData(g, item, rand = Math.random, opts = {}) {
+  const pool = opts.pool && opts.pool.length ? opts.pool : null;
+  if (g === 'vs') {
+    const n = VERSES[item].parts.length, order = scrambleOrder(n, rand);
+    if (opts.level !== 'h') return { order };
+    // Hard: two pieces from another verse that don't belong.
+    const others = (pool && pool.length > 1 ? pool : [...Array(VERSES.length).keys()]).filter((i) => i !== item);
+    const dv = others[Math.floor(rand() * others.length)], dn = VERSES[dv].parts.length;
+    const dk = shuffle([...Array(dn).keys()], rand).slice(0, DECOYS);
+    const at = shuffle([...order, ...dk.map((_, k) => n + k)], rand);
+    return { order: at, dv, dk };
+  }
   if (g === 'tr') return { opt: shuffle([0, 1, 2, 3], rand) };
   if (g === 'tt') return { opt: shuffle([0, 1, 2], rand) }; // 0 and 1 are truths, 2 is the lie
   if (g === 'fv') {
-    const others = shuffle([...Array(VERSES.length).keys()].filter((i) => i !== item), rand).slice(0, 3);
+    const from = pool && pool.length >= 4 ? pool : [...Array(VERSES.length).keys()];
+    const others = shuffle(from.filter((i) => i !== item), rand).slice(0, 3);
     return { opt: shuffle([item, ...others], rand) };
   }
   if (g === 'tl') {
-    const pool = shuffle([...Array(TIMELINE.length).keys()].filter((i) => Math.abs(i - item) > 1), rand);
-    return { anchors: pool.slice(0, 4).sort((a, b) => a - b) };
+    // Anchors: events that can be ordered against the new one (and each other) without doubt.
+    const ok = (a, b) => tlComparable(TIMELINE[a][1], TIMELINE[b][1]);
+    const tryFrom = (cands) => {
+      const picked = [];
+      for (const a of shuffle(cands.filter((i) => i !== item && ok(i, item)), rand)) {
+        if (picked.every((p) => ok(p, a))) picked.push(a);
+        if (picked.length === 4) break;
+      }
+      return picked;
+    };
+    let anchors = pool ? tryFrom(pool) : [];
+    if (anchors.length < 3) anchors = tryFrom([...Array(TIMELINE.length).keys()]);
+    return { anchors: anchors.sort((a, b) => a - b) };
   }
   if (g === 'bk') {
     const set = shuffle([...Array(BOOKS.length).keys()], rand).slice(0, BOOK_SET).sort((a, b) => a - b);
     return { set, order: scrambleOrder(BOOK_SET, rand) };
   }
   return {};
+}
+
+/** Verse Scramble: the text of piece p (decoys are numbered after the verse's own pieces). */
+export function pieceText(item, data, p, C = content()) {
+  const parts = C.VERSES[item].parts;
+  if (p < parts.length) return parts[p];
+  return C.VERSES[data.dv].parts[data.dk[p - parts.length]];
 }
 
 /** The options shown, in screen order, in this phone's language (or the content set given). */

@@ -2,6 +2,8 @@ import { APP_VERSION, firebaseConfig, DEFAULT_THEME } from './config.js';
 import { t, getLang, setLang, getVersePref, getVerseLang, setVersePref, GAME_TEXT, MODE_KN, TEAM_KN, COLOR_KN } from './i18n.js';
 import { content } from './text.js';
 import * as G from './games.js';
+import * as P from './pool.js';
+import * as EN from './content.js';
 import * as L from './logic.js';
 import { qrSvg } from './qr.js';
 
@@ -230,6 +232,17 @@ function viewRoom() {
   return out;
 }
 
+/** Room-wide quiz settings: one Bible book for every game (for church quizzes) and the difficulty. */
+const bookName = (b) => C().BOOKS[EN.BOOKS.indexOf(b)] || b;
+function quizCard(meta, game) {
+  const q = quizOf(meta);
+  const chip = (act, v, label, on) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(v)}" aria-pressed="${on}">${esc(label)}</button>`;
+  const books = [chip('quizBook', '', t('allBooks'), !q.book), ...P.QUIZ_BOOKS.map((b) => chip('quizBook', b, bookName(b), q.book === b))].join('');
+  const levels = P.LEVELS.map((l) => chip('level', l, t('lv_' + l), q.level === l)).join('');
+  const note = game.id === 'bk' ? t('bkAllBooks') : q.book ? t('onlyBook', { b: bookName(q.book) }) : t('lvHint_' + q.level);
+  return `<div class="card col" style="gap:12px"><span class="lbl">${t('quizBook')}</span><div class="seg" role="group" aria-label="${t('quizBook')}">${books}</div><span class="lbl">${t('difficulty')}</span><div class="seg" role="group" aria-label="${t('difficulty')}">${levels}</div><span class="small muted">${esc(note)}${q.book && game.id !== 'bk' ? ' ' + esc(t('lvHint_' + q.level)) : ''}</span></div>`;
+}
+
 function hostLobby() {
   const r = S.room, meta = r.meta, list = playerList();
   const game = L.gameById(meta.game || 'vs'), set = settingsFor(game.id), opts = L.SETTINGS[game.id];
@@ -246,7 +259,8 @@ function hostLobby() {
     ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">${t('roomCode')}</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', t('shareInvite'))}${iconBtn('qr', 'qr', t('showQr'))}${iconBtn('menu', 'menu', t('settings'))}</div></div>${roster}${botRow}</div>`],
     ['glbl', `<div class="row between"><h2 class="title sm">${t('pickGame')}</h2><span class="small muted">${list.length === 1 ? t('onePlayer') : t('nPlayers', { n: list.length })}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
-    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`]
+    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
+    ['quiz', quizCard(meta, game)]
   ];
   if (game.teams) {
     const col = (tc) => {
@@ -262,6 +276,7 @@ function hostLobby() {
   return { cls: '', secs };
 }
 
+const quizTag = (rd) => [rd.book && rd.game !== 'bk' ? bookName(rd.book) : '', t('lv_' + (rd.level || 'm'))].filter(Boolean).join(' · ');
 function introSecs(rd, forPlayer) {
   const g = L.gameById(rd.game);
   let extra = '';
@@ -270,7 +285,7 @@ function introSecs(rd, forPlayer) {
     extra = `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${t('youreOn')}</span><span class="team-s sm">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span></div>`;
   }
   return [
-    ['h', head(esc(gName(g)), forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs }))],
+    ['h', head(esc(gName(g)), (forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs })) + ' · ' + esc(quizTag(rd)))],
     ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">${t('startingIn')}</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(gHow(g))}</span></div>${extra}`]
   ];
 }
@@ -326,7 +341,8 @@ function hangSlots(word, guessed, show, markMissed) {
   const gs = G.hangGuessList(guessed);
   return `<div class="hang ${G.isKannada(word) ? 'hang-kn' : ''}" aria-label="${t('hiddenWord')}">${G.hangTokens(word).map((w) => `<span class="hang-w">${w.map((c) => `<span class="hang-c ${gs.includes(c) ? 'on' : show && markMissed ? 'missed' : ''}">${gs.includes(c) || show ? c : ''}</span>`).join('')}</span>`).join('')}</div>`;
 }
-const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: G.MAX_WRONG - wrong, b: G.MAX_WRONG })}">${[...Array(G.MAX_WRONG).keys()].map((k) => `<span class="life ${k < G.MAX_WRONG - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
+const mw = () => G.livesFor(((S.room || {}).round || {}).level);
+const lives = (wrong) => `<div class="lives" role="img" aria-label="${t('livesLeft', { a: mw() - wrong, b: mw() })}">${[...Array(mw()).keys()].map((k) => `<span class="life ${k < mw() - wrong ? 'on' : ''}"></span>`).join('')}</div>`;
 
 function hostPlay() {
   const rd = S.room.round;
@@ -411,7 +427,7 @@ function hostPlay() {
     // Players report found/total/wrong themselves, because their phone may show the word in another language.
     const rows = list.map((p) => { const a = ans[p.uid] || {}; const gs = a.g || '';
       const wrong = typeof a.w === 'number' ? a.w : G.hangWrong(word, gs), pct = a.t ? (a.f || 0) / a.t : G.hangFound(word, gs) / total;
-      return { p, done: !!a.ok, ms: a.ms || 0, pct: Math.round(pct * 100), status: a.ok ? t('solvedT', { t: fmtT(a.ms) }) : a.out ? t('outT') : t('livesN', { n: Math.max(0, G.MAX_WRONG - wrong) }) }; })
+      return { p, done: !!a.ok, ms: a.ms || 0, pct: Math.round(pct * 100), status: a.ok ? t('solvedT', { t: fmtT(a.ms) }) : a.out ? t('outT') : t('livesN', { n: Math.max(0, mw() - wrong) }) }; })
       .sort((x, y) => (y.done ? 1e9 - y.ms : y.pct) - (x.done ? 1e9 - x.ms : x.pct));
     secs.push(['race', reveal ? resultList(res.order, (uid) => t('solvedT', { t: fmtT((ans[uid] || {}).ms || 0) }), res.pts) : raceRows(rows)]);
   }
@@ -546,10 +562,10 @@ function playerPlay() {
     const v = C().VERSES[item], n = v.parts.length;
     if (!reveal) {
       secs.push(['h', head(esc(v.ref), `${esc(gName(g))} · ${det}`, rd.endsAt, 'tpill')]);
-      secs.push(['lbl', `<span class="lbl">${loc.done ? t('lockedIn') : t('tapInOrder')}</span>`]);
-      const placed = loc.placed.map((pi, k) => `<button class="piece placed jf c-${esc(me.color || 'amethyst')}" data-act="unpiece" data-k="${k}" ${loc.done ? 'disabled' : ''}>${esc(v.parts[pi])}</button>`).join('');
+      secs.push(['lbl', `<span class="lbl">${loc.done ? t('lockedIn') : data.dk ? t('tapInOrderDecoy') : t('tapInOrder')}</span>`]);
+      const placed = loc.placed.map((pi, k) => `<button class="piece placed jf c-${esc(me.color || 'amethyst')}" data-act="unpiece" data-k="${k}" ${loc.done ? 'disabled' : ''}>${esc(G.pieceText(item, data, pi))}</button>`).join('');
       secs.push(['zone', `<div class="zone" aria-label="${t('yourVerse')}">${placed || `<span class="muted">${t('buildsHere')}</span>`}</div>`]);
-      const pool = data.order.filter((pi) => !loc.placed.includes(pi)).map((pi) => `<button class="piece" data-act="piece" data-p="${pi}">${esc(v.parts[pi])}</button>`).join('');
+      const pool = data.order.filter((pi) => !loc.placed.includes(pi)).map((pi) => `<button class="piece" data-act="piece" data-p="${pi}">${esc(G.pieceText(item, data, pi))}</button>`).join('');
       secs.push(['pool', `<div class="pieces">${pool}</div>`]);
       if (loc.done) secs.push(['n', note(true, t('lockedInT', { t: fmtT(loc.ms) }), t('watchTable'))]);
       else if (loc.placed.length === n) secs.push(['n', note(false, t('notQuite'), t('plus3'))]);
@@ -611,9 +627,9 @@ function playerPlay() {
   if (rd.game === 'hg') {
     const [word, cat] = C().HANGMAN[item];
     const gs = loc.guessed || mine.g || '';
-    const wrong = G.hangWrong(word, gs), solved = !!mine.ok || G.hangSolved(word, gs), out = !solved && (mine.out || wrong >= G.MAX_WRONG);
+    const wrong = G.hangWrong(word, gs), solved = !!mine.ok || G.hangSolved(word, gs), out = !solved && (mine.out || wrong >= mw());
     secs.push(['h', head(esc(gName(g)), det, reveal ? null : rd.endsAt, 'tpill')]);
-    secs.push(['word', `<div class="card col" style="gap:12px;align-items:center"><span class="cat-badge">${esc(cat)}</span>${hangSlots(word, gs, reveal || out, true)}${lives(Math.min(wrong, G.MAX_WRONG))}</div>`]);
+    secs.push(['word', `<div class="card col" style="gap:12px;align-items:center"><span class="cat-badge">${esc(cat)}</span>${hangSlots(word, gs, reveal || out, true)}${lives(Math.min(wrong, mw()))}</div>`]);
     if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('solvedIn', { t: fmtT(mine.ms || 0) })) : note(false, t('noPoints'), t('answerWasW', { w: esc(word) }))]);
     else if (solved) secs.push(['n', note(true, t('solvedT', { t: fmtT(mine.ms || loc.ms) }), t('watchTable'))]);
     else if (out) secs.push(['n', note(false, t('outOfLives'), t('itWasW', { w: esc(word) }))]);
@@ -806,12 +822,27 @@ const write = (p) => p.catch((e) => { console.error(e); toast(t('writeErr')); })
 /* ----- Host game control ----- */
 const contentLength = G.contentLength;
 
+/** Items already played on this host phone, per game, quiz book and level, so nothing repeats
+ * until everything in that set has come up once. */
+const SEEN_KEY = 'ur.seen';
+function loadSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; } }
+function saveSeen(all) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(all)); } catch { /* private mode: in memory only */ } S.seen = all; }
+const quizOf = (meta) => ({ book: P.QUIZ_BOOKS.includes(meta.book) ? meta.book : '', level: P.LEVELS.includes(meta.level) ? meta.level : 'm' });
+const poolFor = (g, q) => (g === 'bk' ? [] : P.eligible(g, contentLength(g), EN, q, 3));
+
 function hostStartGame() {
-  const meta = S.room.meta, g = meta.game || 'vs', set = settingsFor(g), now = S.net.now();
-  const n = Math.min(set.rounds, contentLength(g));
+  const meta = S.room.meta, g = meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
+  let seq;
+  if (g === 'bk') seq = L.pickSeq(contentLength(g), set.rounds);
+  else {
+    const all = S.seen || loadSeen(), key = [g, q.book || 'all', q.level].join('|');
+    const r = P.pickFresh(poolFor(g, q), set.rounds, all[key] || []);
+    seq = r.seq; saveSeen({ ...all, [key]: r.seen });
+  }
+  const n = seq.length;
   const upd = {
     'meta/status': 'playing', answers: null,
-    round: { game: g, phase: 'intro', i: -1, n, secs: set.secs, seq: L.pickSeq(contentLength(g), n), endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
+    round: { game: g, phase: 'intro', i: -1, n, secs: G.secsFor(set.secs, q.level), level: q.level, book: q.book, seq, endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
   };
   playerList().forEach((p) => {
     upd[`players/${p.uid}/score`] = 0; upd[`players/${p.uid}/correct`] = 0; upd[`players/${p.uid}/ready`] = false;
@@ -821,7 +852,7 @@ function hostStartGame() {
 }
 function hostStartRound(i) {
   const rd = S.room.round, now = S.net.now();
-  return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: G.roundData(rd.game, rd.seq[i]), res: null });
+  return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: G.roundData(rd.game, rd.seq[i], Math.random, { pool: poolFor(rd.game, { book: rd.book || '', level: rd.level || 'm' }), level: rd.level }), res: null });
 }
 function scoreRound(rd, ans) {
   const item = rd.seq[rd.i];
@@ -918,7 +949,7 @@ function botsPlay(rd, now) {
       const word = G.hangWord(item, content('en'));
       const letters = [...new Set(word.replace(/ /g, '').split(''))], n = letters.length, half = Math.ceil(n / 2);
       if (elapsed >= plan.at / 2) send('half', { g: letters.slice(0, half).join(''), f: half, t: n, w: 0 });
-      if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, G.MAX_WRONG), f: 1, t: n, w: G.MAX_WRONG, out: true });
+      if (elapsed >= plan.at) send('end', plan.ok ? { g: letters.join(''), f: n, t: n, w: 0, ok: true, ms: plan.at } : { g: letters.slice(0, 1).join('') + 'QXZJKV'.slice(0, mw()), f: 1, t: n, w: mw(), out: true });
     } else if (plan.ok && elapsed >= plan.at) send('ok', { ok: true, at: S.net.TS, tries: 1 });
   });
 }
@@ -968,13 +999,13 @@ function guessLetter(c) {
   if (!rd || rd.game !== 'hg' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
   const loc = ensureLocal(rd), word = G.hangWord(rd.seq[rd.i]);
   const list = G.hangGuessList(loc.guessed);
-  if (loc.done || list.includes(c) || G.hangWrong(word, loc.guessed) >= G.MAX_WRONG) return;
+  if (loc.done || list.includes(c) || G.hangWrong(word, loc.guessed) >= mw()) return;
   loc.guessed = G.hangGuessJoin([...list, c]);
   const wrong = G.hangWrong(word, loc.guessed);
   // f/t/w let the table show progress even when it shows the word in another language.
   const val = { g: loc.guessed, f: G.hangFound(word, loc.guessed), t: G.hangLetters(word), w: wrong };
   if (G.hangSolved(word, loc.guessed)) { loc.done = true; loc.ms = Math.max(0, S.net.now() - rd.startedAt); val.ok = true; val.ms = loc.ms; vibrate(40); }
-  else if (!G.hangTokens(word).flat().includes(c)) { vibrate([20, 40, 20]); if (wrong >= G.MAX_WRONG) val.out = true; }
+  else if (!G.hangTokens(word).flat().includes(c)) { vibrate([20, 40, 20]); if (wrong >= mw()) val.out = true; }
   write(S.net.set(myAnsPath(), val));
   paint();
 }
@@ -1080,6 +1111,8 @@ const A = {
   vlang: (el) => { setVersePref(el.dataset.v); S.local = null; applyTheme(); },
   pick: (el) => write(S.net.update(roomPath() + '/meta', { game: el.dataset.g })),
   set: (el) => { const g = S.room.meta.game || 'vs'; write(S.net.update(`${roomPath()}/meta/settings/${g}`, { ...settingsFor(g), [el.dataset.k]: Number(el.dataset.v) })); },
+  quizBook: (el) => write(S.net.update(`${roomPath()}/meta`, { book: el.dataset.v || null })),
+  level: (el) => write(S.net.update(`${roomPath()}/meta`, { level: el.dataset.v })),
   shuffleTeams: () => {
     const t = L.shuffleTeams(playerList().map((p) => p.uid)), upd = {};
     Object.entries(t).forEach(([u, team]) => { upd[`players/${u}/team`] = team; });

@@ -227,3 +227,65 @@ test('Kannada hangman and emoji', async () => {
   assert.equal(L.emojiMatches('ದಾವೀದ', KN.EMOJI[2].keys), false);
   KN.EMOJI.forEach((e, i) => assert.equal(L.emojiMatches(e.a, e.keys), true, 'own answer matches ' + i));
 });
+
+test('content is tagged with a quiz book and difficulty, and every quiz book has enough of each game', async () => {
+  const P = await import('../js/pool.js');
+  const C = await import('../js/content.js');
+  const G2 = await import('../js/games.js');
+  const NEED = { vs: 5, fv: 5, tr: 12, em: 8, hg: 8, tt: 8, tl: 8 };
+  for (const g of Object.keys(NEED)) {
+    const total = G2.contentLength(g);
+    for (let i = 0; i < total; i++) assert.ok(P.LEVELS.includes(P.tagOf(g, i, C).d), `${g} ${i} difficulty`);
+    for (const b of P.QUIZ_BOOKS) {
+      const n = P.eligible(g, total, C, { book: b, level: 'h' }).length;
+      assert.ok(n >= NEED[g], `${g} ${b}: ${n}`);
+    }
+    // Easy is a subset of Medium, Medium of Hard
+    const e = P.eligible(g, total, C, { level: 'e' }), m = P.eligible(g, total, C, { level: 'm' }), h = P.eligible(g, total, C, { level: 'h' });
+    assert.ok(e.length < m.length && m.length < h.length && e.every((i) => m.includes(i)), g + ' levels');
+  }
+  C.HANGMAN.forEach(([w], i) => assert.match(w, /^[A-Z]+( [A-Z]+)*$/, 'hangman ' + i));
+});
+
+test('no item repeats until the whole pool has come up', async () => {
+  const P = await import('../js/pool.js');
+  const pool = [...Array(10).keys()];
+  let seen = [], got = [];
+  for (let k = 0; k < 3; k++) { const r = P.pickFresh(pool, 3, seen); got.push(...r.seq); seen = r.seen; }
+  assert.equal(new Set(got).size, 9);
+  const r = P.pickFresh(pool, 3, seen); // 1 left, then a new cycle
+  assert.ok(r.seq.includes(pool.find((i) => !got.includes(i))));
+  assert.equal(new Set(r.seq).size, 3);
+});
+
+test('timeline: anchors can always be ordered without doubt, in all books and in each quiz book', async () => {
+  const P = await import('../js/pool.js');
+  const C = await import('../js/content.js');
+  const G2 = await import('../js/games.js');
+  assert.equal(P.tlComparable('Matthew 26', 'John 13:5'), false);
+  assert.equal(P.tlComparable('Matthew 26:39', 'Matthew 26:74'), true);
+  assert.equal(P.tlComparable('Matthew 26', 'Matthew 26:74'), false);
+  assert.equal(P.tlComparable('Exodus 7–11', 'Exodus 10:13'), false);
+  assert.equal(P.tlComparable('Daniel 6:16', '2 Kings 25'), false);
+  for (const book of ['', ...P.QUIZ_BOOKS]) {
+    const pool = P.eligible('tl', C.TIMELINE.length, C, { book, level: 'h' });
+    for (const item of pool) {
+      const d = G2.roundData('tl', item, Math.random, { pool, level: 'h' });
+      assert.ok(d.anchors.length >= 3, `${book} ${item} anchors`);
+      const all = [...d.anchors, item];
+      for (const a of all) for (const b of all) if (a !== b) assert.ok(P.tlComparable(C.TIMELINE[a][1], C.TIMELINE[b][1]), `${C.TIMELINE[a][0]} / ${C.TIMELINE[b][0]}`);
+    }
+  }
+});
+
+test('hard mode: stray verse pieces, fewer lives, shorter timer', async () => {
+  const G2 = await import('../js/games.js');
+  const d = G2.roundData('vs', 0, Math.random, { level: 'h' });
+  const n = VERSES[0].parts.length;
+  assert.equal(d.order.length, n + G2.DECOYS);
+  assert.notEqual(d.dv, 0);
+  assert.ok(G2.pieceText(0, d, n).length > 0);
+  assert.equal(G2.roundData('vs', 0, Math.random, { level: 'm' }).order.length, n);
+  assert.equal(G2.livesFor('h'), 4); assert.equal(G2.livesFor('m'), 6);
+  assert.equal(G2.secsFor(60, 'h'), 45); assert.equal(G2.secsFor(20, 'h'), 15); assert.equal(G2.secsFor(30, 'e'), 30);
+});
