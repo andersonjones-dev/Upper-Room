@@ -2,9 +2,9 @@
 // Bump VERSION on every change. Only caches starting with PREFIX are ever deleted, because every
 // app on andersonjones-dev.github.io shares one cache storage.
 const PREFIX = 'upper-room-';
-const VERSION = PREFIX + '2.0.1';
+const VERSION = PREFIX + '2.0.2';
 const SHELL = [
-  './', './index.html', './install.js', './manifest.webmanifest',
+  './', './index.html', '/App-Kit/v1/kit.js', './manifest.webmanifest',
   './css/tokens.css', './css/app.css',
   './js/app.js', './js/config.js', './js/content.js', './js/verses.js', './js/trivia.js', './js/emoji.js',
   './js/games.js', './js/pool.js', './js/logic.js', './js/qr.js', './js/i18n.js', './js/text.js', './js/kn/verses.js', './js/kn/content.js', './js/wordle-words.js',
@@ -35,6 +35,22 @@ self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (req.method !== 'GET') return;
   const url = new URL(req.url);
+
+  // Shared App-Kit (install strip, About, update bar) from andersonjones-dev.github.io/App-Kit:
+  // open the saved copy straight away and save the newest copy in the background for next time.
+  if (url.pathname.indexOf('/App-Kit/') === 0 && (url.origin === self.location.origin || url.hostname === 'andersonjones-dev.github.io')) {
+    event.respondWith(caches.open(VERSION).then(function (c) {
+      return c.match(req, { ignoreSearch: true }).then(function (hit) {
+        var net = fetch(req, { cache: 'no-cache' }).then(function (r) {
+          if (r && (r.ok || r.type === 'opaque')) c.put(req, r.clone());
+          return r;
+        });
+        if (hit) { event.waitUntil(net.catch(function () {})); return hit; }
+        return net;
+      });
+    }));
+    return;
+  }
 
   // App pages: network first (3 s), then the saved copy.
   if (req.mode === 'navigate') {
