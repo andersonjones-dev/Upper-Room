@@ -2,9 +2,9 @@
 // Bump VERSION on every change. Only caches starting with PREFIX are ever deleted, because every
 // app on andersonjones-dev.github.io shares one cache storage.
 const PREFIX = 'upper-room-';
-const VERSION = PREFIX + '2.0.0';
+const VERSION = PREFIX + '2.0.1';
 const SHELL = [
-  './', './index.html', './manifest.webmanifest',
+  './', './index.html', './install.js', './manifest.webmanifest',
   './css/tokens.css', './css/app.css',
   './js/app.js', './js/config.js', './js/content.js', './js/verses.js', './js/trivia.js', './js/emoji.js',
   './js/games.js', './js/pool.js', './js/logic.js', './js/qr.js', './js/i18n.js', './js/text.js', './js/kn/verses.js', './js/kn/content.js', './js/wordle-words.js',
