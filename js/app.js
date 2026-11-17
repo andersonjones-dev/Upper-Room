@@ -26,6 +26,7 @@ const S = {
 };
 S.drafts.name = S.profile.name || '';
 if (params.get('join')) { S.view = 'join'; S.drafts.code = L.cleanCode(params.get('join')); }
+else if (params.has('daily')) S.view = 'daily'; // the link in a shared daily result
 if (!['cyber', 'glass'].includes(S.prefs.theme)) S.prefs.theme = DEFAULT_THEME; // Luxury Noir was removed in 1.2.1
 
 const $view = document.getElementById('view');
@@ -112,6 +113,7 @@ const settingsFor = (g) => ({ ...(L.SETTINGS[g] ? L.SETTINGS[g].def : {}), ...((
 /* =================== Rendering =================== */
 function sectionsFor() {
   if (S.view === 'join') return viewJoin();
+  if (S.view === 'daily') return viewDaily();
   if (S.view === 'room') return viewRoom();
   return viewHome();
 }
@@ -154,6 +156,7 @@ function paintChrome() {
   }
 }
 function tickTimers() {
+  document.querySelectorAll('[data-until]').forEach((el) => { const v = untilMidnight(); if (el.textContent !== v) el.textContent = v; if (v === '0:00:00') setTimeout(paint, 1500); });
   const now = S.net ? S.net.now() : Date.now();
   document.querySelectorAll('[data-ends]').forEach((el) => {
     const secs = L.secondsLeft(Number(el.dataset.ends), now);
@@ -174,6 +177,65 @@ function toast(msg) {
   paintChrome();
 }
 
+/* =================== Daily Bible Wordle (on your own, no room) =================== */
+const DAILY_KEY = 'ur.daily', DAILY_STATS = 'ur.dailyStats';
+/** Today's puzzle in this phone's language, with any guesses already made today. */
+function dailyState() {
+  const day = L.dayNumber(), lang = getLang();
+  if (S.daily && S.daily.day === day && S.daily.lang === lang) return S.daily;
+  const saved = load(DAILY_KEY, {}), g = saved && saved.day === day && saved.lang === lang ? saved : null;
+  S.daily = { day, lang, item: L.dailyItem(day, EN.WORDLE.length), wrows: g ? g.rows : [], wcur: [], wsel: null, wmsg: '' };
+  return S.daily;
+}
+const dailyAnswer = (d) => G.wdTiles(G.wdWord(d.item));
+const dailyWon = (d, answer) => (d.wrows[d.wrows.length - 1] || []).join('') === answer.join('');
+const dailyOver = (d, answer) => dailyWon(d, answer) || d.wrows.length >= G.WD_TRIES;
+function dailyCommit(d, answer) {
+  save(DAILY_KEY, { day: d.day, lang: d.lang, rows: d.wrows });
+  if (!dailyOver(d, answer)) { vibrate(15); return; }
+  const won = dailyWon(d, answer);
+  save(DAILY_STATS, L.dailyStatsAfter(load(DAILY_STATS, null), d.day, won, d.wrows.length));
+  vibrate(won ? 40 : [20, 40, 20]);
+}
+const dailyUrl = () => location.origin + location.pathname + '?daily';
+/** Seconds to the next local midnight, shown as h:mm:ss. */
+function untilMidnight() {
+  const n = new Date(), m = new Date(n.getFullYear(), n.getMonth(), n.getDate() + 1);
+  const s = Math.max(0, Math.ceil((m - n) / 1000));
+  return `${Math.floor(s / 3600)}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+function dailyStatus() {
+  const d = dailyState(), answer = dailyAnswer(d), no = L.dailyNo(d.day), st = load(DAILY_STATS, null);
+  if (!d.wrows.length) return t('dailyNew', { n: no });
+  if (!dailyOver(d, answer)) return t('dailyGoing', { n: no, a: d.wrows.length });
+  return dailyWon(d, answer) ? t('dailySolved', { n: d.wrows.length, s: L.liveStreak(st, d.day) }) : t('dailyMissed');
+}
+function dailyStats() {
+  const st = load(DAILY_STATS, null) || { played: 0, won: 0, best: 0, dist: [0, 0, 0, 0, 0, 0] }, d = S.daily;
+  const pct = st.played ? Math.round((st.won / st.played) * 100) : 0, top = Math.max(1, ...st.dist);
+  const mine = d && dailyWon(d, dailyAnswer(d)) ? d.wrows.length : 0;
+  const stat = (v, l) => `<span class="ds"><span class="ds-v">${v}</span><span class="ds-l">${l}</span></span>`;
+  const bars = st.dist.map((v, i) => `<span class="db ${mine === i + 1 ? 'on' : ''}"><span class="db-v">${v}</span><span class="db-b" style="--h:${Math.max(6, Math.round((v / top) * 100))}%"></span><span class="db-n">${i + 1}</span></span>`).join('');
+  return `<div class="card col dstats" style="gap:10px"><div class="ds-row">${stat(st.played, t('stPlayed'))}${stat(pct, t('stWin'))}${stat(L.liveStreak(st, d ? d.day : L.dayNumber()), t('stStreak'))}${stat(st.best || 0, t('stBest'))}</div>
+    <div class="col" style="gap:4px"><span class="lbl">${t('stDist')}</span><div class="dbars" role="img" aria-label="${esc(st.dist.map((v, i) => `${i + 1}: ${v}`).join(', '))}">${bars}</div></div></div>`;
+}
+function viewDaily() {
+  const d = dailyState(), answer = dailyAnswer(d), over = dailyOver(d, answer), won = dailyWon(d, answer);
+  const book = (EN.WORDLE[d.item] || [])[1];
+  const secs = [['dh', `<div class="row" style="gap:8px">${iconBtn('back', 'back', t('back'))}<div class="col grow"><h1 class="title">${esc(gName(L.gameById('wd')))}</h1><span class="det small muted">#${L.dailyNo(d.day)} · ${t('dailyEvery')}</span></div>${langToggle()}</div>`]];
+  // once it's over, only the rows played are shown, sized to leave room for the result and stats
+  secs.push(['grid', over ? `<div class="wd-grid wd-done ${G.isKannada(answer.join('')) ? 'wd-kn' : ''}" style="--n:${answer.length};--rows:${d.wrows.length}">${d.wrows.map((r) => { const sc = G.wdScore(r, answer); return `<div class="wd-row">${r.map((c, i) => `<span class="wd-t ${sc[i]}">${esc(c)}</span>`).join('')}</div>`; }).join('')}</div>` : wdGrid(d.wrows, d, answer, true)]);
+  if (!over) {
+    if (!d.wrows.length) secs.push(['how', `<p class="small muted center" style="margin:0;text-align:center">${t('dailyHow')}</p>`]);
+    secs.push(['keys', `<div class="grow"></div><p class="small wd-msg" role="status">${esc(d.wmsg || '')}</p>${wdKeyboard(d.item, d.wrows, answer)}`]);
+  } else {
+    secs.push(['n', note(won, won ? t('dailyWon', { n: d.wrows.length }) : t('dailyLost'), t('dailyWord', { w: esc(answer.join('')), b: esc(bookName(book)) }))]);
+    secs.push(['share', `<div class="row between"><div class="col"><span class="lbl">${t('nextWord')}</span><span class="title md" data-until="1">${untilMidnight()}</span></div><button class="btn btn-p btn-sm" data-act="dailyShare">${t('shareResult')}</button></div>`]);
+    secs.push(['stats', dailyStats()]);
+  }
+  return { cls: '', secs };
+}
+
 /* =================== Views: home & join =================== */
 function viewHome() {
   const tiles = L.GAMES.map((g) => `<div class="tile jf c-${g.c}">${esc(g.sym)}</div>`).join('');
@@ -186,7 +248,7 @@ function viewHome() {
       ['hero', `<div class="hero"><h1 class="h1">${t('heroTitle')}</h1><p class="sub">${t('heroSub')}</p></div>`],
       ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? t('connecting') : t('hostRoom')}</button><button class="btn btn-s" data-act="goJoin">${t('joinCode')}</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
       ['about', `<button class="linkbtn" data-act="about">${t('aboutLink')}</button>`],
-      ['card', `<div class="card row between"><div class="col"><span class="card-title">${t('gamesReady', { n: L.GAMES.filter((g) => g.ready).length })}</span><span class="det small muted">${t('moreSoon', { n: L.GAMES.filter((g) => !g.ready).length })}</span></div><div class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></div></div>`]
+      ['card', `<button class="card row between dailycard" data-act="daily"><span class="col" style="align-items:flex-start;text-align:left"><span class="card-title">${t('dailyT')}</span><span class="det small muted">${esc(dailyStatus())}</span></span><span class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></span></button>`]
     ]
   };
 }
@@ -222,11 +284,11 @@ function viewRoom() {
       out = playerPlay();
       out.secs = [['hostbar', `<div class="row between"><span class="pill">${t('hostPlayingPill')}</span><button class="btn btn-s btn-sm" data-act="skip">${t('revealNow')}</button></div>`]].concat(out.secs);
     } else if (playing && rd.phase === 'intro') out = { cls: '', secs: introSecs(rd, true).concat([hostControls(rd)]) };
-    else out = st === 'playing' ? hostPlay() : st === 'results' ? hostResults() : hostLobby();
+    else out = st === 'playing' ? hostPlay() : st === 'results' ? hostResults() : st === 'final' ? tourFinal(false) : hostLobby();
   }
   else {
     if (!players()[S.net.uid]) return { cls: 'center-v', secs: [['out', `<div class="col" style="align-items:center;gap:14px;text-align:center"><h1 class="title">${t('notInRoom')}</h1><button class="btn btn-p" data-act="home">${t('backStart')}</button></div>`]] };
-    out = st === 'playing' ? playerPlay() : st === 'results' ? playerResults() : playerWait();
+    out = st === 'playing' ? playerPlay() : st === 'results' ? playerResults() : st === 'final' ? tourFinal(true) : playerWait();
   }
   if (S.role === 'player' && r.meta.hostOnline === false) conn.push(['hostoff', `<div class="pill" role="status">${t('hostOff')}</div>`]);
   out.secs = conn.concat(out.secs);
@@ -252,8 +314,9 @@ function hostLobby() {
     : `<p class="small muted" style="margin:0">${t('waitingPlayersHint')}</p>`;
   const nBots = list.filter((p) => p.bot).length;
   const botRow = `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s btn-sm" data-act="addBot" ${list.length >= L.MAX_PLAYERS ? 'disabled' : ''}>${t('addBot')}</button>${nBots ? `<button class="btn btn-s btn-sm" data-act="removeBots">${nBots === 1 ? t('removeBot') : t('removeBots')}</button>` : ''}</div>`;
+  const tour = tourOf(meta), tl = tour.on ? tour.games : [];
   const tiles = L.GAMES.map((g) => g.ready
-    ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span><span>${esc(gMode(g))}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`
+    ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''} ${tl.includes(g.id) ? 'in-tour' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span>${tl.includes(g.id) ? `<span class="tb" aria-label="${esc(t('tourGame', { a: tl.indexOf(g.id) + 1, b: tl.length }))}">${tl.indexOf(g.id) + 1}</span>` : `<span>${esc(gMode(g))}</span>`}</span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`
     : `<button class="gtile jf c-${g.c}" disabled aria-label="${esc(t('comingSoon', { g: gName(g) }))}"><span class="gn"><span>${g.n}</span><span>${t('soon')}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`).join('');
   const seg = (k, vals, unit) => `<div class="seg" role="group" aria-label="${k}">${vals.map((v) => `<button class="chip ${set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${set[k] === v}">${v}${unit}</button>`).join('')}</div>`;
   const secs = [
@@ -261,7 +324,8 @@ function hostLobby() {
     ['glbl', `<div class="row between"><h2 class="title sm">${t('pickGame')}</h2><span class="small muted">${list.length === 1 ? t('onePlayer') : t('nPlayers', { n: list.length })}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
     ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : game.id === 'hu' ? t('turns') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
-    ['quiz', quizCard(meta, game)]
+    ['quiz', quizCard(meta, game)],
+    ['tour', tourCard(tour)]
   ];
   if (game.teams) {
     const col = (tc) => {
@@ -273,7 +337,8 @@ function hostLobby() {
   const hp = !!meta.hostPlays;
   secs.push(['hostplay', `<div class="card col" style="gap:10px"><div class="row between"><div class="col"><span class="card-title">${t('playAsWell')}</span><span class="small muted">${hp ? t('hpOn') : t('hpOff')}</span></div><button class="switch ${hp ? 'on' : ''}" data-act="hostPlays" role="switch" aria-checked="${hp}" aria-label="${t('playAsWell')}"><span></span></button></div>${hp ? `<div class="row" style="gap:10px"><label class="lbl" for="hostName">${t('yourName')}</label><input id="hostName" class="field" data-draft="name" maxlength="16" autocomplete="nickname" style="min-height:48px"></div>` : ''}</div>`]);
   const closeLbl = Date.now() - S.confirmClose < 4000 ? t('tapClose') : t('closeRoom');
-  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length ? '' : 'disabled'}>${list.length ? t('startG', { g: esc(gName(game)) }) : t('waitingPlayers')}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
+  const tourShort = tour.on && tl.length < L.TOUR_MIN;
+  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length && !tourShort ? '' : 'disabled'}>${!list.length ? t('waitingPlayers') : tourShort ? t('tourNeed') : tour.on ? t('tourStart', { n: tl.length }) : t('startG', { g: esc(gName(game)) })}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
   return { cls: '', secs };
 }
 
@@ -286,7 +351,7 @@ function introSecs(rd, forPlayer) {
     extra = `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${t('youreOn')}</span><span class="team-s sm">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span></div>`;
   }
   return [
-    ['h', head(esc(gName(g)), (forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs })) + ' · ' + esc(quizTag(rd)))],
+    ['h', head(esc(gName(g)), (tourRunning(S.room.meta) ? esc(t('tourGame', { a: tourOf(S.room.meta).k + 1, b: tourOf(S.room.meta).games.length })) + ' · ' : '') + (forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs })) + ' · ' + esc(quizTag(rd)))],
     ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">${t('startingIn')}</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(gHow(g))}</span></div>${extra}`]
   ];
 }
@@ -430,27 +495,68 @@ function huTable(rd, reveal) {
 }
 
 /* ----- Bible Wordle ----- */
-function wdGrid(rows, cur, answer, live) {
-  const n = answer.length, out = [];
+function wdGrid(rows, loc, answer, live) {
+  const n = answer.length, out = [], cur = (loc && loc.wcur) || [];
   for (let r = 0; r < G.WD_TRIES; r++) {
     let cells;
     if (r < rows.length) { const sc = G.wdScore(rows[r], answer); cells = rows[r].map((c, i) => `<span class="wd-t ${sc[i]}" aria-label="${esc(c)} ${t(sc[i] === 'g' ? 'wdRight' : sc[i] === 'y' ? 'wdIn' : 'wdNot')}">${esc(c)}</span>`); }
-    else if (r === rows.length && live) cells = [...Array(n).keys()].map((i) => `<span class="wd-t ${cur[i] ? 'typed' : ''} ${i === cur.length ? 'next' : ''}">${esc(cur[i] || '')}</span>`);
+    else if (r === rows.length && live) { const at = wdCursor(loc, n); cells = [...Array(n).keys()].map((i) => `<button class="wd-t wd-slot ${cur[i] ? 'typed' : ''} ${i === at ? 'next' : ''}" data-act="wdSlot" data-i="${i}" aria-label="${t(cur[i] ? 'wdClearSlot' : 'wdPickSlot', { n: i + 1 })}">${esc(cur[i] || '')}</button>`); }
     else cells = [...Array(n).keys()].map(() => '<span class="wd-t"></span>');
     out.push(`<div class="wd-row">${cells.join('')}</div>`);
   }
   return `<div class="wd-grid ${G.isKannada(answer.join('')) ? 'wd-kn' : ''}" style="--n:${n}">${out.join('')}</div>`;
 }
+/** Where the next letter goes: the tile the player tapped, else the first blank one. */
+function wdCursor(loc, n) {
+  const cur = loc.wcur, sel = loc.wsel;
+  if (sel != null && sel < n && !cur[sel]) return sel;
+  for (let i = 0; i < n; i++) if (!cur[i]) return i;
+  return -1;
+}
+const DEL_ICON = '<svg class="wd-del" viewBox="0 0 32 24" aria-hidden="true"><path d="M10.5 3H28a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H10.5L2 12z" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/><path d="M15 8l8 8M23 8l-8 8" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>';
 const wdMini = (r) => `<span class="wd-mini">${String(r || '').split('').map((c) => `<i class="${c}"></i>`).join('')}</span>`;
 function wdKeyboard(item, rows, answer) {
   const st = G.wdKeyState(rows, answer), key = (c) => `<button class="hkey wd-k ${st[c] || ''}" data-act="wdKey" data-c="${esc(c)}">${esc(c)}</button>`;
   const enter = `<button class="hkey wd-k wd-wide" data-act="wdEnter">${t('wdEnter')}</button>`;
-  const del = `<button class="hkey wd-k wd-wide" data-act="wdDel" aria-label="${t('wdDelete')}">⌫</button>`;
+  const del = `<button class="hkey wd-k wd-wide" data-act="wdDel" aria-label="${t('wdDelete')}">${DEL_ICON}</button>`;
   if (!G.isKannada(answer.join(''))) {
     const r = G.WD_ROWS_EN;
     return `<div class="wd-kb"><div class="wd-kr">${r[0].split('').map(key).join('')}</div><div class="wd-kr wd-kr2">${r[1].split('').map(key).join('')}</div><div class="wd-kr">${enter}${r[2].split('').map(key).join('')}${del}</div></div>`;
   }
   return `<div class="wd-kb"><div class="hkeys hkeys-kn">${G.wdKeys(item).map(key).join('')}</div><div class="wd-kr">${del}${enter}</div></div>`;
+}
+
+/* ----- Tournament night: a few games in a row; places in each game add up to one champion ----- */
+function tourOf(meta) {
+  const tr = (meta && meta.tour) || {};
+  const games = (Array.isArray(tr.games) ? tr.games : Object.values(tr.games || {})).filter((g) => L.GAMES.some((x) => x.id === g && x.ready));
+  return { on: !!tr.on, games, k: tr.k || 0, hist: tr.hist || {} };
+}
+const tourRunning = (meta) => { const tr = tourOf(meta); return tr.on && tr.games.length >= L.TOUR_MIN; };
+function tourCard(tour) {
+  const sw = `<button class="switch ${tour.on ? 'on' : ''}" data-act="tourOn" role="switch" aria-checked="${tour.on}" aria-label="${t('tourT')}"><span></span></button>`;
+  const list = tour.games.map((g, i) => `<span class="chip on tchip"><button class="tchip-n" data-act="pick" data-g="${g}">${i + 1} · ${esc(gName(L.gameById(g)))}</button><button class="tchip-x" data-act="tourDel" data-g="${g}" aria-label="${esc(t('tourDel', { g: gName(L.gameById(g)) }))}">✕</button></span>`).join('');
+  return `<div class="card col" style="gap:10px"><div class="row between" style="gap:12px"><div class="col"><span class="card-title">${t('tourT')}</span><span class="small muted">${tour.on ? t('tourPick') : t('tourOff')}</span></div>${sw}</div>${tour.on ? `${list ? `<div class="seg">${list}</div>` : ''}<span class="small muted">${t('tourRule')}</span>` : ''}</div>`;
+}
+/** Overall tournament table with the points from the game just played. */
+function tourBoard(meta, justPlayed) {
+  const tr = tourOf(meta), rows = L.tourTable(players(), tr.hist), last = tr.hist[tr.k] || {};
+  return `<div class="card list"><div class="row between"><span class="lbl">${t('tourTable')}</span><span class="small muted">${t('tourGame', { a: Math.min(tr.k + 1, tr.games.length), b: tr.games.length })}</span></div>${rows.map((p, i) => `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="li-name grow">${esc(p.name)}</span>${justPlayed && last[p.uid] ? `<span class="small muted">+${last[p.uid]}</span>` : ''}<span class="li-det strong">${t('tourPts', { n: p.total })}</span></div>`).join('')}</div>`;
+}
+function tourFinal(forPlayer) {
+  const meta = S.room.meta, tr = tourOf(meta), rows = L.tourTable(players(), tr.hist).map((r) => ({ ...r, score: r.total }));
+  const played = Object.keys(tr.hist).length, top = rows[0];
+  const secs = [['h', `<div class="col center"><span class="lbl">${t('tourChamp')}</span><h1 class="title lg glitch">${top && top.total ? t('tourWinner', { n: esc(top.name) }) : t('gameOver')}</h1><span class="small muted">${esc(tr.games.slice(0, played).map((g, i) => `${i + 1} ${gName(L.gameById(g))}`).join(' · '))}</span></div><div class="hazard only-cyber" aria-hidden="true"></div>`]];
+  if (forPlayer) {
+    const idx = rows.findIndex((p) => p.uid === S.net.uid), me = rows[idx] || { total: 0, per: [] };
+    secs.push(['me', `<div class="card col center" style="gap:4px;align-items:center;text-align:center"><span class="lbl">${t('tourPlace')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span><span class="title sm">${t('tourPts', { n: me.total })}</span></div>`]);
+  } else secs.push(['pod', podiumHtml(rows)]);
+  const head = tr.games.slice(0, played).map((g, i) => `<span class="tg" aria-label="${esc(gName(L.gameById(g)))}">${i + 1}</span>`).join('');
+  secs.push(['board', `<div class="card list"><div class="li tour-row tour-head"><span class="grow lbl">${t('tourTable')}</span>${head}<span class="tg tt">${t('tourTot')}</span></div>${rows.map((p, i) => `<div class="li tour-row c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="li-name grow">${esc(p.name)}</span>${p.per.map((v) => `<span class="tg ${v === L.TOUR_PTS[0] ? 'tw' : ''}">${v || '–'}</span>`).join('')}<span class="tg tt">${p.total}</span></div>`).join('')}<p class="small muted" style="margin:0">${t('tourRule')}</p></div>`]);
+  secs.push(['ctl', forPlayer
+    ? `<div class="grow"></div><p class="small muted center" style="margin:0;text-align:center">${t('hostCanStart')}</p><button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`
+    : `<div class="grow"></div><button class="btn btn-p" data-act="tourDone">${t('backLobby')}</button>`]);
+  return { cls: '', secs };
 }
 
 function hostPlay() {
@@ -642,16 +748,22 @@ function hostResults() {
   let sub = '';
   if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, t('inTribes')); }
   if (rd.game === 'fv' || rd.game === 'hu') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
-  return {
+  const out = {
     cls: '',
     secs: [
-      ['h', `<div class="col center"><span class="lbl">${t('tonight')}</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
+      ['h', `<div class="col center"><span class="lbl">${tourRunning(S.room.meta) ? esc(t('tourGame', { a: tourOf(S.room.meta).k + 1, b: tourOf(S.room.meta).games.length })) : t('tonight')}</span><h1 class="title lg glitch">${line}</h1>${sub ? `<span class="small muted">${sub}</span>` : ''}</div><div class="hazard only-cyber" aria-hidden="true"></div>`],
       ['pod', rd.game === 'ex' ? '' : podiumHtml(rows)],
       ['board', `<div class="card list"><span class="lbl">${t('byRound')}</span>${rows.map((p, i) => { const b = breakdown(p.uid, rd);
         return `<div class="li c-${esc(p.color)}">${markers(i)}${avatar(p, 'xs')}<span class="col grow" style="gap:3px;min-width:0"><span class="li-name">${esc(p.name)}</span><span class="small muted">${t('nFirsts', { n: b.firsts })} · ${t('roundsOf', { a: b.scored, b: b.played })}</span>${strip(b)}</span><span class="li-det strong">${p.score}</span></div>`; }).join('')}${ruleLine(rd)}</div>`],
       ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="toLobby">${t('anotherGame')}</button><button class="btn btn-p" data-act="again">${t('playAgain')}</button></div>`]
     ]
   };
+  if (tourRunning(S.room.meta)) {
+    const tr = tourOf(S.room.meta), last = tr.k + 1 >= tr.games.length;
+    out.secs.splice(2, 0, ['tour', tourBoard(S.room.meta, true)]);
+    out.secs[out.secs.length - 1] = ['ctl', `<div class="grow"></div><div class="pair"><button class="btn btn-s" data-act="tourEnd">${t('tourEnd')}</button><button class="btn btn-p" data-act="${last ? 'tourEnd' : 'tourNext'}">${last ? t('tourChampBtn') : t('tourNext', { g: esc(gName(L.gameById(tr.games[tr.k + 1]))) })}</button></div>`];
+  }
+  return out;
 }
 
 /* ----- Player screens ----- */
@@ -663,6 +775,7 @@ function playerWait() {
     ['me', `<div class="grow col" style="align-items:center;justify-content:center;gap:16px;text-align:center">${avatar(me, 'lg')}<h1 class="title lg glitch">${t('youreIn')}</h1><span class="muted">${t('choosing')}</span></div>`],
     ['next', `<div class="card row" style="gap:14px"><div class="tile jf c-${g.c} tile-lg" aria-hidden="true">${esc(g.sym)}</div><div class="col"><span class="lbl">${t('upNext')}</span><span class="card-title">${esc(gName(g))}</span><span class="det small muted">${esc(gMode(g))}</span></div></div>`]
   ];
+  if (tourRunning(meta)) secs.push(['tour', `<div class="card col" style="gap:4px"><span class="lbl">${t('tourT')}</span><span class="small">${esc(tourOf(meta).games.map((x, i) => `${i + 1}. ${gName(L.gameById(x))}`).join('  '))}</span></div>`]);
   if (g.teams) secs.push(['team', `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span><button class="btn btn-s btn-sm" data-act="switchTeam">${t('switchTeam')}</button></div>`]);
   secs.push(['ready', `<button class="btn ${me.ready ? 'btn-s' : 'btn-p'}" data-act="ready" aria-pressed="${!!me.ready}">${me.ready ? t('readyWaiting') : t('imReady')}</button>`]);
   return { cls: '', secs };
@@ -674,7 +787,7 @@ function ensureLocal(rd) {
   const mine = (((S.room.answers || {})[rd.i]) || {})[S.net.uid] || {};
   S.local = { key, placed: [], wrong: 0, done: !!mine.ok, ms: mine.ms || 0, guessWrong: false, tries: 0,
     guessed: mine.g || '', arr: [...Array(G.BOOK_SET).keys()], sel: null, bkMiss: null,
-    wrows: (mine.gs || []).map((x) => x.split('|')), wcur: [], wmsg: '' };
+    wrows: (mine.gs || []).map((x) => x.split('|')), wcur: [], wsel: null, wmsg: '' };
   if (rd.game === 'vs' && mine.ok) S.local.placed = C().VERSES[itemOf(rd)].parts.map((_, i) => i);
   if (rd.game === 'bk' && mine.ok && rd.data) S.local.arr = [...Array(G.BOOK_SET).keys()].sort((a, b) => rd.data.order[a] - rd.data.order[b]);
   S.drafts.guess = '';
@@ -781,7 +894,7 @@ function playerPlay() {
       if (!opened) {
         const cur = loc.excode || '', locked = (loc.exLockUntil || 0) > Date.now();
         secs.push(['tries', exTries(ans)]);
-        secs.push(['code', `<div class="grow"></div><div class="wd-row ex-slots" style="--n:${code.length}">${[...Array(code.length).keys()].map((k) => `<span class="wd-t ${cur[k] ? 'typed' : ''}">${cur[k] || ''}</span>`).join('')}</div>${loc.exWrong ? `<p class="small wd-msg" role="status">${t('exWrong')}</p>` : ''}<div class="ex-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="hkey" data-act="exKey" data-c="${d}" ${locked ? 'disabled' : ''}>${d}</button>`).join('')}<button class="hkey" data-act="exDel" ${locked ? 'disabled' : ''} aria-label="${t('wdDelete')}">⌫</button><button class="hkey" data-act="exKey" data-c="0" ${locked ? 'disabled' : ''}>0</button><button class="hkey ex-open" data-act="exTry" ${locked || cur.length < code.length ? 'disabled' : ''}>${t('exOpenB')}</button></div>`]);
+        secs.push(['code', `<div class="grow"></div><div class="wd-row ex-slots" style="--n:${code.length}">${[...Array(code.length).keys()].map((k) => `<span class="wd-t ${cur[k] ? 'typed' : ''}">${cur[k] || ''}</span>`).join('')}</div>${loc.exWrong ? `<p class="small wd-msg" role="status">${t('exWrong')}</p>` : ''}<div class="ex-pad">${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => `<button class="hkey" data-act="exKey" data-c="${d}" ${locked ? 'disabled' : ''}>${d}</button>`).join('')}<button class="hkey" data-act="exDel" ${locked ? 'disabled' : ''} aria-label="${t('wdDelete')}">${DEL_ICON}</button><button class="hkey" data-act="exKey" data-c="0" ${locked ? 'disabled' : ''}>0</button><button class="hkey ex-open" data-act="exTry" ${locked || cur.length < code.length ? 'disabled' : ''}>${t('exOpenB')}</button></div>`]);
       } else secs.push(['n', note(true, t('exOpen'), t('exOpenedBy', { n: pName((Object.entries(ans).find(([, a]) => a && a.ok) || [])[0]) }))]);
     }
   }
@@ -826,7 +939,7 @@ function playerPlay() {
     const solved = !!mine.ok || last.join('') === answer.join(''), out = !solved && (!!mine.out || rows.length >= G.WD_TRIES);
     const live = !reveal && !solved && !out;
     secs.push(['h', head(esc(gName(g)), det, reveal ? null : rd.endsAt, 'tpill')]);
-    secs.push(['grid', wdGrid(rows, loc.wcur, answer, live)]);
+    secs.push(['grid', wdGrid(rows, loc, answer, live)]);
     if (reveal) secs.push(['n', myPts ? note(true, `+${myPts} · ${ord(res.order.indexOf(uid) + 1)}`, t('wdSolvedN', { n: rows.length, t: fmtT(mine.ms || 0) })) : note(false, t('noPoints'), t('answerWasW', { w: esc(answer.join('')) }))]);
     else if (solved) secs.push(['n', note(true, t('wdSolvedN', { n: rows.length, t: fmtT(mine.ms || loc.ms) }), t('watchTable'))]);
     else if (out) secs.push(['n', note(false, t('wdOut'), t('itWasW', { w: esc(answer.join('')) }))]);
@@ -899,7 +1012,7 @@ function playerResults() {
     secs: [
       ['big', `<div class="grow col" style="align-items:center;justify-content:center;gap:8px;text-align:center">${rd.game === 'ex' ? `<span class="lbl">${t('exTogether')}</span><span class="title md">${esc(exSummary(rd))}</span>` : `<span class="lbl">${t('youFinished')}</span><span class="big">${idx >= 0 ? ord(idx + 1) : '–'}</span>`}<span class="title sm">${t('nPoints', { n: me.score })}</span></div>`],
       ['stats', `<div class="grid3" style="gap:8px"><div class="stat"><span class="stat-v">${me.score}</span><span class="stat-l">${t('points')}</span></div><div class="stat"><span class="stat-v">${b.firsts}</span><span class="stat-l">${t('firsts')}</span></div><div class="stat"><span class="stat-v">${me.correct || 0}/${b.played}</span><span class="stat-l">${t('roundsScored')}</span></div></div>`],
-      ['strip', `<div class="card col" style="gap:8px"><span class="lbl">${t('byRound')}</span>${strip(b)}${ruleLine(rd)}</div>`],
+      ['strip', tourRunning(S.room.meta) ? tourBoard(S.room.meta, true) : `<div class="card col" style="gap:8px"><span class="lbl">${t('byRound')}</span>${strip(b)}${ruleLine(rd)}</div>`],
       ['wait', `<p class="small muted center" style="margin:0;text-align:center">${t('hostCanStart')}</p><button class="btn btn-s" data-act="leave">${t('leaveRoom')}</button>`]
     ]
   };
@@ -988,13 +1101,33 @@ function leaveRoomLocal() {
   paint();
 }
 
+/* Rooms this phone has hosted, with when each was last used. When it hosts again, it deletes its own
+ * rooms that haven't been used for a day (the database rules already let a host delete its rooms). */
+const MY_ROOMS = 'ur.myRooms', ROOM_TTL = 24 * 3600 * 1000;
+const touchRoom = (code) => save(MY_ROOMS, { ...load(MY_ROOMS, {}), [code]: Date.now() });
+async function cleanOldRooms(keep) {
+  const now = Date.now(), done = [];
+  for (const [code, at] of Object.entries(load(MY_ROOMS, {}))) {
+    if (code === keep || now - at < ROOM_TTL) continue;
+    try {
+      const host = await S.net.get(`rooms/${code}/meta/host`);
+      if (host === S.net.uid) await S.net.remove('rooms/' + code);
+      done.push(code);
+    } catch (e) { console.warn('room cleanup', code, e); } // tried again next time
+  }
+  const mine = load(MY_ROOMS, {}); // re-read: a new room may have been added meanwhile
+  done.forEach((c) => delete mine[c]);
+  save(MY_ROOMS, mine);
+}
+
 async function startHost() {
   try { await ensureNet(); } catch { return; }
+  cleanOldRooms((load('ur.session', null) || {}).code).catch(() => {});
   for (let tries = 0; tries < 8; tries++) {
     const code = L.makeCode();
     const meta = { host: S.net.uid, created: Date.now(), status: 'lobby', game: 'vs', theme: S.prefs.theme, v: 1 };
     try {
-      if (await S.net.create(`rooms/${code}/meta`, meta)) { enterRoom(code, 'host'); return; }
+      if (await S.net.create(`rooms/${code}/meta`, meta)) { touchRoom(code); enterRoom(code, 'host'); return; }
     } catch (e) { console.error(e); S.netErr = t('createErr'); paint(); return; }
   }
   S.netErr = t('noFreeCode'); paint();
@@ -1039,8 +1172,9 @@ function saveSeen(all) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(all
 const quizOf = (meta) => ({ book: P.QUIZ_BOOKS.includes(meta.book) ? meta.book : '', level: P.LEVELS.includes(meta.level) ? meta.level : 'm' });
 const poolFor = (g, q) => (g === 'bk' ? [] : P.eligible(g, contentLength(g), EN, q, 3));
 
-function hostStartGame() {
-  const meta = S.room.meta, g = meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
+function hostStartGame(only) {
+  touchRoom(S.code);
+  const meta = S.room.meta, g = only || meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
   let seq;
   if (g === 'bk') seq = L.pickSeq(contentLength(g), set.rounds);
   else if (g === 'hu' || g === 'ex') seq = [...Array(set.rounds).keys()]; // turns / locks; cards and clues are dealt at each one
@@ -1051,7 +1185,7 @@ function hostStartGame() {
   }
   const n = seq.length;
   const upd = {
-    'meta/status': 'playing', answers: null,
+    'meta/status': 'playing', 'meta/game': g, answers: null,
     round: { game: g, phase: 'intro', i: -1, n, secs: G.secsFor(set.secs, q.level), level: q.level, book: q.book, seq, endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
   };
   playerList().forEach((p) => {
@@ -1118,7 +1252,13 @@ function hostAdvance() {
   const rd = S.room.round;
   return rd.i + 1 < rd.n ? hostStartRound(rd.i + 1) : hostResultsWrite();
 }
-const hostResultsWrite = () => S.net.update(roomPath(), { 'meta/status': 'results', 'round/phase': 'results' });
+/** End of a game. In a tournament, its places are turned into tournament points (once per game). */
+function hostResultsWrite() {
+  const upd = { 'meta/status': 'results', 'round/phase': 'results' };
+  const tr = tourOf(S.room.meta);
+  if (tourRunning(S.room.meta) && !tr.hist[tr.k]) upd[`meta/tour/hist/${tr.k}`] = L.tourPoints(players());
+  return S.net.update(roomPath(), upd);
+}
 
 async function hostStep(fn) {
   if (S.hostBusy) return;
@@ -1267,6 +1407,10 @@ function huMark(ok) {
   write(S.net.set(myAnsPath(), { k: h.k + 1, got: ok ? [...h.got, h.k] : h.got, pass: h.pass + (ok ? 0 : 1) }));
 }
 function wdLive() {
+  if (S.view === 'daily') {
+    const d = dailyState(), answer = dailyAnswer(d);
+    return dailyOver(d, answer) ? null : { loc: d, answer, daily: true };
+  }
   const rd = S.room && S.room.round;
   if (!rd || rd.game !== 'wd' || rd.phase !== 'play' || S.net.now() >= rd.endsAt) return null;
   const loc = ensureLocal(rd), answer = G.wdTiles(G.wdWord(rd.seq[rd.i]));
@@ -1274,19 +1418,37 @@ function wdLive() {
   if (loc.done || last.join('') === answer.join('') || loc.wrows.length >= G.WD_TRIES) return null;
   return { rd, loc, answer };
 }
+/** Type a letter into the chosen (or first blank) tile; null deletes the last letter typed. */
 function wdType(c) {
   const w = wdLive(); if (!w) return;
-  w.loc.wmsg = '';
-  if (c === null) w.loc.wcur.pop();
-  else if (w.loc.wcur.length < w.answer.length) w.loc.wcur.push(c);
+  const { loc, answer } = w, n = answer.length, cur = loc.wcur;
+  loc.wmsg = '';
+  if (c === null) {
+    let k = -1; for (let i = n - 1; i >= 0; i--) if (cur[i]) { k = i; break; }
+    if (k >= 0) { cur[k] = ''; loc.wsel = k; }
+  } else {
+    const at = wdCursor(loc, n); if (at < 0) return;
+    cur[at] = c;
+    loc.wsel = null;
+    for (let i = 1; i <= n; i++) { const j = (at + i) % n; if (!cur[j]) { loc.wsel = j; break; } }
+  }
+  paint();
+}
+/** Tapping a tile in the row being typed blanks it, and the next letter goes there. */
+function wdSlot(i) {
+  const w = wdLive(); if (!w || i < 0 || i >= w.answer.length) return;
+  const cur = w.loc.wcur;
+  cur[i] = ''; w.loc.wmsg = '';
+  // the next letter goes into this tile; on an empty row typing simply starts from the left
+  w.loc.wsel = cur.some(Boolean) ? i : null;
   paint();
 }
 function wdEnter() {
   const w = wdLive(); if (!w) return;
   const { rd, loc, answer } = w;
-  if (loc.wcur.length < answer.length) { loc.wmsg = t('wdShort'); vibrate([20, 40, 20]); paint(); return; }
-  if (!G.wdValid(loc.wcur, answer)) { loc.wmsg = t('wdNotWord'); vibrate([20, 40, 20]); paint(); return; }
-  loc.wrows.push(loc.wcur); loc.wcur = [];
+  if (!G.wdValid(loc.wcur, answer)) { loc.wmsg = t('wdShort'); vibrate([20, 40, 20]); paint(); return; }
+  loc.wrows.push(loc.wcur.slice(0, answer.length)); loc.wcur = []; loc.wsel = null;
+  if (w.daily) { dailyCommit(loc, answer); paint(); return; }
   const r = loc.wrows.map((g) => G.wdScore(g, answer)), ok = r[r.length - 1] === 'g'.repeat(answer.length);
   const val = { gs: loc.wrows.map((g) => g.join('|')), r, n: loc.wrows.length };
   if (ok) { loc.done = true; loc.ms = Math.max(0, S.net.now() - rd.startedAt); val.ok = true; val.ms = loc.ms; vibrate(40); }
@@ -1404,8 +1566,15 @@ const A = {
     window.open('https://wa.me/?text=' + encodeURIComponent(text + '\n' + url), '_blank', 'noopener');
   },
   host: () => { startHost(); },
+  daily: () => { S.view = 'daily'; S.daily = null; },
+  dailyShare: async () => {
+    const d = dailyState(), answer = dailyAnswer(d);
+    const text = L.dailyShare(L.dailyNo(d.day), d.wrows.map((r) => G.wdScore(r, answer)), dailyWon(d, answer), dailyUrl());
+    if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(text); toast(t('copied')); } catch { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener'); }
+  },
   goJoin: () => { S.view = 'join'; S.joinErr = ''; },
-  back: () => { S.view = 'home'; },
+  back: () => { S.view = 'home'; if (history.replaceState && params.has('daily')) history.replaceState(null, '', location.pathname); },
   home: () => leaveRoomLocal(),
   color: (el) => { S.profile.color = el.dataset.c; save('ur.profile', S.profile); },
   join: () => { doJoin(); },
@@ -1416,7 +1585,19 @@ const A = {
   mode: (el) => { S.prefs.mode = el.dataset.v; save('ur.prefs', S.prefs); },
   lang: (el) => { setLang(el.dataset.v); S.local = null; applyTheme(); },
   vlang: (el) => { setVersePref(el.dataset.v); S.local = null; applyTheme(); },
-  pick: (el) => write(S.net.update(roomPath() + '/meta', { game: el.dataset.g })),
+  pick: (el) => {
+    const g = el.dataset.g, tr = tourOf(S.room.meta), upd = { game: g };
+    if (tr.on && !tr.games.includes(g) && tr.games.length < L.TOUR_MAX) upd['tour/games'] = [...tr.games, g];
+    write(S.net.update(roomPath() + '/meta', upd));
+  },
+  tourOn: () => { const tr = tourOf(S.room.meta); write(S.net.update(roomPath() + '/meta', { 'tour/on': !tr.on, 'tour/games': tr.on ? tr.games : (tr.games.length ? tr.games : [S.room.meta.game || 'vs']), 'tour/k': 0, 'tour/hist': null })); },
+  tourDel: (el) => { const tr = tourOf(S.room.meta); write(S.net.update(roomPath() + '/meta', { 'tour/games': tr.games.filter((g) => g !== el.dataset.g) })); },
+  tourNext: () => {
+    const tr = tourOf(S.room.meta); if (tr.k + 1 >= tr.games.length) return;
+    write(S.net.update(roomPath() + '/meta', { 'tour/k': tr.k + 1 }).then(() => hostStartGame(tr.games[tr.k + 1])));
+  },
+  tourEnd: () => write(S.net.update(roomPath(), { 'meta/status': 'final' })),
+  tourDone: () => write(S.net.update(roomPath(), { 'meta/status': 'lobby', 'meta/tour/k': 0, 'meta/tour/hist': null, round: null, answers: null })),
   set: (el) => { const g = S.room.meta.game || 'vs'; write(S.net.update(`${roomPath()}/meta/settings/${g}`, { ...settingsFor(g), [el.dataset.k]: Number(el.dataset.v) })); },
   quizBook: (el) => write(S.net.update(`${roomPath()}/meta`, { book: el.dataset.v || null })),
   level: (el) => write(S.net.update(`${roomPath()}/meta`, { level: el.dataset.v })),
@@ -1449,14 +1630,19 @@ const A = {
   },
   switchTeam: () => { const me = players()[S.net.uid]; write(S.net.update(`${roomPath()}/players/${S.net.uid}`, { team: me.team === 'sapphire' ? 'ruby' : 'sapphire' })); },
   ready: () => { const me = players()[S.net.uid]; write(S.net.update(`${roomPath()}/players/${S.net.uid}`, { ready: !me.ready })); },
-  start: () => hostStartGame(),
+  start: () => {
+    const tr = tourOf(S.room.meta);
+    if (!tr.on) return hostStartGame();
+    if (tr.games.length < L.TOUR_MIN) return;
+    write(S.net.update(roomPath() + '/meta', { 'tour/k': 0, 'tour/hist': null }).then(() => hostStartGame(tr.games[0])));
+  },
   endGame: () => hostStep(hostResultsWrite),
   skip: () => { if (S.room.round.phase === 'play') hostStep(hostReveal); },
   nextNow: () => { if (S.room.round.phase === 'reveal') hostStep(hostAdvance); },
   toLobby: () => write(S.net.update(roomPath(), { 'meta/status': 'lobby', round: null, answers: null })),
   again: () => hostStartGame(),
   closeRoom: () => {
-    if (Date.now() - S.confirmClose < 4000) { const p = roomPath(); S.confirmClose = 0; write(S.net.remove(p)); leaveRoomLocal(); return; }
+    if (Date.now() - S.confirmClose < 4000) { const p = roomPath(), mine = load(MY_ROOMS, {}); delete mine[S.code]; save(MY_ROOMS, mine); S.confirmClose = 0; write(S.net.remove(p)); leaveRoomLocal(); return; }
     S.confirmClose = Date.now(); setTimeout(paint, 4100);
   },
   leave: () => { const p = `${roomPath()}/players/${S.net.uid}`; if (S.unpresence) { S.unpresence(); S.unpresence = null; } write(S.net.remove(p)); leaveRoomLocal(); },
@@ -1481,6 +1667,7 @@ const A = {
   huGot: () => huMark(true),
   huPass: () => huMark(false),
   wdKey: (el) => wdType(el.dataset.c),
+  wdSlot: (el) => wdSlot(+el.dataset.i),
   wdDel: () => wdType(null),
   wdEnter: () => wdEnter(),
   bkCheck: () => bkCheck(),
@@ -1545,7 +1732,7 @@ if ('serviceWorker' in navigator && location.protocol !== 'file:') {
 /* =================== Boot =================== */
 paint();
 const session = load('ur.session', null);
-if (session && session.code && !params.get('join')) {
+if (session && session.code && !params.get('join') && !params.has('daily')) {
   S.code = session.code; S.role = session.role; S.view = 'room'; S.room = undefined; paint();
   ensureNet().then(() => enterRoom(session.code, session.role)).catch(() => { S.view = 'home'; save('ur.session', null); paint(); });
 }

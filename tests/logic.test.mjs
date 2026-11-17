@@ -300,7 +300,9 @@ test('Bible Wordle rules and words', async () => {
   assert.equal(sc('AARON', 'HAMAN'), 'ygxxg'); assert.equal(sc('ABBAS', 'HAMAN'), 'yxxgx');
   assert.equal(sc('SLING', 'CROWN'), 'xxxyx');
   assert.equal(G2.wdValid('CROWN'.split(''), 'HAMAN'.split('')), true);
-  assert.equal(G2.wdValid('QQQQQ'.split(''), 'HAMAN'.split('')), false);
+  assert.equal(G2.wdValid('QQQQQ'.split(''), 'HAMAN'.split('')), true); // any letters are allowed
+  assert.equal(G2.wdValid(['Q', '', 'Q', 'Q', 'Q'], 'HAMAN'.split('')), false); // a blank tile
+  assert.equal(G2.wdValid('QQQ'.split(''), 'HAMAN'.split('')), false);
   const EN = T.content('en'), KN = T.content('kn');
   assert.equal(KN.WORDLE.length, EN.WORDLE.length);
   EN.WORDLE.forEach(([w], i) => {
@@ -355,4 +357,35 @@ test('Exodus Escape: codes, clue holders, shared points, content in every quiz b
   assert.deepEqual(r.pts, { a: 300, b: 300, c: 300 });
   assert.equal(L.scoreEscape({ b: { ok: true, at: 80000 } }, 0, 90, ['a']).pts.a, 100);
   for (const b of P.QUIZ_BOOKS) assert.ok(P.eligible('ex', C.ESCAPE.length, C, { book: b, level: 'h' }).length >= 4, 'escape ' + b);
+});
+
+test('daily wordle: one word a day, no repeats in a cycle, streaks, share text', async () => {
+  const L = await import('../js/logic.js');
+  assert.equal(L.dailyNo(L.dayNumber(new Date(2026, 10, 18, 23, 59))), 1);
+  assert.equal(L.dailyNo(L.dayNumber(new Date(2026, 10, 19, 0, 1))), 2);
+  const n = 37, days = [...Array(n).keys()].map((k) => L.dailyItem(L.DAILY_START + k, n));
+  assert.equal(new Set(days).size, n); // every word once per cycle
+  assert.equal(L.dailyItem(L.DAILY_START + 3, n), L.dailyItem(L.DAILY_START + 3, n)); // same for everyone
+  let s = L.dailyStatsAfter(null, 100, true, 3);
+  assert.deepEqual([s.played, s.won, s.streak, s.best, s.dist[2]], [1, 1, 1, 1, 1]);
+  assert.deepEqual(L.dailyStatsAfter(s, 100, true, 3), s); // counted once a day
+  s = L.dailyStatsAfter(s, 101, true, 2); assert.equal(s.streak, 2);
+  assert.equal(L.liveStreak(s, 102), 2); assert.equal(L.liveStreak(s, 103), 0);
+  s = L.dailyStatsAfter(s, 102, false, 6); assert.deepEqual([s.played, s.streak, s.best], [3, 0, 2]);
+  s = L.dailyStatsAfter(s, 104, true, 1); assert.equal(s.streak, 1);
+  const txt = L.dailyShare(5, ['xyxxg', 'ggggg'], true, 'https://x');
+  assert.match(txt, /#5 2\/6/); assert.ok(txt.includes('⬛🟨⬛⬛🟩\n🟩🟩🟩🟩🟩')); assert.ok(!/[A-Z]{5}/.test(txt.replace('Upper Room', '').replace('Bible Wordle', '')));
+});
+
+test('tournament points by place, ties share, totals', async () => {
+  const L = await import('../js/logic.js');
+  const ps = { a: { name: 'A', score: 900 }, b: { name: 'B', score: 500 }, c: { name: 'C', score: 500 }, d: { name: 'D', score: 100 }, e: { name: 'E', score: 0 } };
+  assert.deepEqual(L.tourPoints(ps), { a: 10, b: 8, c: 8, d: 5, e: 0 });
+  const many = Object.fromEntries([...Array(10).keys()].map((i) => ['p' + i, { name: 'P' + i, score: 1000 - i * 10 }]));
+  assert.equal(L.tourPoints(many).p9, 1); assert.equal(L.tourPoints(many).p6, 2);
+  const co = { a: { name: 'A', score: 300 }, b: { name: 'B', score: 300 } }; // Exodus Escape: everyone shares
+  assert.deepEqual(L.tourPoints(co), { a: 10, b: 10 });
+  const tb = L.tourTable({ a: { name: 'A' }, b: { name: 'B' }, z: { name: 'Zed' } }, { 0: { a: 10, b: 8 }, 1: { a: 8, b: 10 }, 2: { b: 6, a: 10, z: 8 } });
+  assert.deepEqual(tb.map((r) => [r.uid, r.total, r.wins]), [['a', 28, 2], ['b', 24, 1], ['z', 8, 0]]);
+  assert.deepEqual(tb[2].per, [0, 0, 8]);
 });

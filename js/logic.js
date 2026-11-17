@@ -266,3 +266,54 @@ export function nextBotName(players) {
   const used = new Set(Object.values(players || {}).map((p) => p && p.name));
   return BOT_NAMES.find((n) => !used.has(n)) || 'Bot ' + (Object.keys(players || {}).length + 1);
 }
+
+// ----- Daily Bible Wordle -----
+/** Calendar day number on this phone (changes at local midnight). */
+export const dayNumber = (d = new Date()) => Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
+export const DAILY_START = dayNumber(new Date(2026, 10, 18)); // puzzle #1: 18 November 2026
+export const dailyNo = (day) => day - DAILY_START + 1;
+/** The word for a day: every word comes up once (in a shuffled order) before any repeats. */
+export function dailyItem(day, total) {
+  const x = day - DAILY_START, cycle = Math.floor(x / total), pos = ((x % total) + total) % total;
+  return shuffle([...Array(total).keys()], seeded('daily:' + cycle))[pos];
+}
+/** Stats after finishing a day. Counted once per day; a streak is days solved in a row. */
+export function dailyStatsAfter(st, day, won, tries) {
+  const s = { played: 0, won: 0, streak: 0, best: 0, dist: [0, 0, 0, 0, 0, 0], last: null, lastWin: null, ...(st || {}) };
+  if (s.last === day) return s;
+  const dist = [...s.dist];
+  if (won) dist[tries - 1] = (dist[tries - 1] || 0) + 1;
+  const streak = won ? (s.lastWin === day - 1 ? s.streak + 1 : 1) : 0;
+  return { ...s, played: s.played + 1, won: s.won + (won ? 1 : 0), streak, best: Math.max(s.best, streak), dist, last: day, lastWin: won ? day : s.lastWin };
+}
+/** The streak to show today: it is broken if neither today nor yesterday was solved. */
+export const liveStreak = (st, day) => (st && (st.lastWin === day || st.lastWin === day - 1) ? st.streak : 0);
+/** Shareable result: the coloured squares only, never the letters. */
+export function dailyShare(no, rows, won, url) {
+  const sq = { g: '🟩', y: '🟨', x: '⬛' };
+  return `Upper Room · Bible Wordle #${no} ${won ? rows.length : 'X'}/6\n\n${rows.map((r) => r.split('').map((c) => sq[c]).join('')).join('\n')}\n\n${url}`;
+}
+
+// ----- Tournament night -----
+export const TOUR_MIN = 2;
+export const TOUR_MAX = 5;
+export const TOUR_PTS = [10, 8, 6, 5, 4, 3, 2];
+/** Tournament points for one game from its final scores: 10, 8, 6, 5, 4, 3, 2, then 1 by place.
+ * Tied scores share the higher place; a score of 0 earns nothing. */
+export function tourPoints(players) {
+  const rows = standings(players), out = {};
+  rows.forEach((p) => {
+    if (!p.score) { out[p.uid] = 0; return; }
+    const place = rows.findIndex((q) => q.score === p.score);
+    out[p.uid] = TOUR_PTS[place] ?? 1;
+  });
+  return out;
+}
+/** Overall table: total tournament points, then most game wins, then name. */
+export function tourTable(players, hist) {
+  const games = Object.keys(hist || {}).sort((a, b) => a - b).map((k) => hist[k] || {});
+  return Object.entries(players || {}).filter(([, p]) => p && p.name).map(([uid, p]) => {
+    const per = games.map((g) => g[uid] || 0);
+    return { uid, ...p, per, total: per.reduce((a, b) => a + b, 0), wins: per.filter((v) => v === TOUR_PTS[0]).length };
+  }).sort((a, b) => b.total - a.total || b.wins - a.wins || String(a.name).localeCompare(String(b.name)));
+}

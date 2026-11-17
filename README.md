@@ -2,7 +2,7 @@
 
 Bible party games where everyone plays on their own phone. One phone hosts and becomes "the table" (timer, scores, the map); everyone else joins with a four-letter code or by scanning a QR code. No accounts. Works on iPhone and Android in the browser, and can be added to the Home Screen.
 
-**Version 1.4.0 games (8 of 12):** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline. Pictionary, Heads Up, Bible Wordle and Exodus Escape show as "Soon" in the lobby.
+**Version 2.1.0, all 12 games:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline, Bible Pictionary, Heads Up, Bible Wordle and Exodus Escape. Plus a Daily Bible Wordle to play on your own, and Tournament night (several games, one champion). In Bible Wordle any five letters can be guessed, and tapping a box clears it.
 
 **Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
 
@@ -49,6 +49,12 @@ Open the link in Safari → Share → **Add to Home Screen**.
 
 **Difficulty:** every question, verse, word and event is tagged Easy, Medium or Hard. Easy uses the best-known ones; Medium adds the medium ones; Hard uses everything, takes a quarter off the timer, gives 4 Hangman lives instead of 6 and mixes 2 stray pieces from another verse into Verse Scramble.
 
+**Daily Bible Wordle:** the card on the start screen. Everyone gets the same Bible word each day (it changes at midnight on each phone), with no room needed. Six tries; tap a box to clear it and type into it; any letters are accepted. The phone keeps the streak, win % and guess counts, and **Share result** sends the coloured squares (never the letters) with a link. Every word comes up once before any repeats. The stats live on that phone only.
+
+**Tournament night:** in the lobby, turn on **Tournament night** and tap 2 to 5 games in the order to play them (tap a name in the list to change that game's rounds and seconds). After each game its places become tournament points: 1st 10, 2nd 8, 3rd 6, then 5, 4, 3, 2 and 1; tied scores share the place and a score of 0 gets nothing. The results show the running table; after the last game (or **End tournament**) everyone sees the champion and each game's points.
+
+**Old rooms:** each host phone remembers the rooms it opened. When it hosts again, it deletes its own rooms that haven't been used for a day (no database change needed). Rooms from before 2.1.0, or from phones that never host again, stay until deleted in the Firebase console.
+
 **No repeats:** the host's phone remembers what each game has already used (per quiz book and difficulty). Nothing comes up again until everything in that set has come up once; then a new cycle starts.
 
 If a phone drops out or the app is closed, opening it again rejoins the same room automatically.
@@ -60,11 +66,10 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `css/tokens.css` | The two themes' colours, fonts, spacing (light and dark). |
 | `css/app.css` | How every part looks, per theme. |
 | `js/app.js` | Screens, rooms, and the host's game control. |
-| `js/logic.js` | Scoring and rules (tested). |
+| `js/logic.js` | Scoring and rules, the daily word and streaks, tournament points (tested). |
 | `js/content.js` | Hangman words (with book and difficulty), Two Truths sets, timeline events, the 66 books, the tribes. |
 | `js/verses.js` | 350 KJV verses (exact text, split into pieces), each tagged with a difficulty. |
 | `js/trivia.js` | Trivia questions with references. |
-| `js/wordle-words.js` | Every five-letter KJV word: the English guesses Bible Wordle accepts. |
 | `js/emoji.js` | Emoji puzzles and the answers each one accepts. |
 | `js/games.js` | Round set-up and right answers for each game, Hard-mode rules (tested). |
 | `js/pool.js` | Quiz book and difficulty filters, the no-repeat rule, and which timeline events can be shown together (tested). |
@@ -98,4 +103,7 @@ node tests/e2e-headsup.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Heads 
 node tests/e2e-pictionary.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # drawing syncs, guesses, artist points
 node tests/e2e-escape.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # Exodus Escape: split clues, wrong-code lock, shared points
 node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # quiz book (Ruth) + Hard, no repeats
+node tests/e2e-daily.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # daily Wordle: solve, stats, share, resume, Kannada
+node tests/e2e-tour.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # tournament night: list, points, ties, champion
+node tests/e2e-cleanup.cjs http://127.0.0.1:8765/upper-room/           # host deletes only its own day-old rooms
 ```

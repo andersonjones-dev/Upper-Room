@@ -1,5 +1,5 @@
 // Bible Wordle in a mixed room: Ben plays in Kannada, Cara in English, plus a practice bot.
-// Checks colours, the word list check, scoring by fewest guesses, and that nothing overflows on a small phone.
+// Checks colours, tapping a tile to blank it, any-letters guesses, scoring by fewest guesses, and that nothing overflows on a small phone.
 // Usage: node tests/e2e-wordle.cjs <base-url> <screenshot-dir>
 const { chromium } = require('playwright');
 const path = require('path');
@@ -41,12 +41,29 @@ const SHOTS = process.argv[3] || '/tmp/ur-shots';
     await ben.waitForFunction((i) => __ur.room.round && __ur.room.round.phase === 'play' && __ur.room.round.i === i, i, { timeout: 30000 });
     const rd = await ben.evaluate(() => __ur.room.round), item = rd.seq[rd.i];
     const en = EN.WORDLE[item][0], kn = G.wdTiles(KN.WORDLE[item][0]);
-    // Cara: a non-word, then a real wrong word, then the answer (3 guesses)
-    for (const c of 'QQQQQ') await cara.click(`[data-act="wdKey"][data-c="${c}"]`);
-    await cara.click('[data-act="wdEnter"]');
-    await cara.waitForSelector('text=Not a word in the list');
-    for (let k = 0; k < 5; k++) await cara.click('[data-act="wdDel"]');
-    const wrong = en === 'GRACE' ? 'MERCY' : 'GRACE';
+    // Cara: tap a tile to blank it, type into that gap, blank them all; then any 5 letters, then the answer
+    const row = () => cara.evaluate(() => [...document.querySelectorAll('.wd-slot')].map((b) => b.textContent).join('.'));
+    for (const c of 'QWERT') await cara.click(`[data-act="wdKey"][data-c="${c}"]`);
+    await cara.click('[data-act="wdSlot"][data-i="1"]');
+    if ((await row()) !== 'Q..E.R.T') errors.push('blank tile ' + await row());
+    await cara.click('[data-act="wdEnter"]'); await cara.waitForSelector('text=Not enough letters');
+    await cara.click('[data-act="wdKey"][data-c="Z"]');
+    if ((await row()) !== 'Q.Z.E.R.T') errors.push('fill gap ' + await row());
+    await cara.click('[data-act="wdSlot"][data-i="3"]'); await cara.click('[data-act="wdSlot"][data-i="0"]');
+    await cara.click('[data-act="wdKey"][data-c="A"]'); // goes to the tile tapped last (0)
+    if ((await row()) !== 'A.Z.E..T') errors.push('tap order ' + await row());
+    await cara.click('[data-act="wdDel"]'); // removes the last letter (T)
+    if ((await row()) !== 'A.Z.E..') errors.push('delete ' + await row());
+    for (let k = 0; k < 5; k++) await cara.click(`[data-act="wdSlot"][data-i="${k}"]`);
+    if ((await row()) !== '....') errors.push('blank all ' + await row());
+    await cara.click('[data-act="wdKey"][data-c="B"]');
+    if ((await row()) !== 'B....') errors.push('restart from left ' + await row());
+    await cara.click('[data-act="wdDel"]');
+    if (i === 0) {
+      const m = await cara.evaluate(() => { const r = document.querySelector('.wd-del').getBoundingClientRect(), k = document.querySelector('[data-act="wdDel"]').getBoundingClientRect(); return [r.width, r.height, k.width, k.height].map(Math.round); });
+      console.log('erase icon w,h / key w,h', m.join(','));
+    }
+    const wrong = en === 'QXZJV' ? 'ZZZZZ' : 'QXZJV'; // not a word: now accepted
     for (const c of wrong) await cara.click(`[data-act="wdKey"][data-c="${c}"]`);
     await cara.click('[data-act="wdEnter"]');
     if (i === 0) { await cara.screenshot({ path: `${SHOTS}/wd-01-cara-en-se.png` }); console.log('cara SE overflow', await ov(cara)); }

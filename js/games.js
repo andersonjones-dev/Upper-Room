@@ -1,6 +1,5 @@
 // Per-game rules that don't touch the screen or network. Tested with `node --test`.
 import { VERSES, TRIVIA, EMOJI, HANGMAN, TWO_TRUTHS, TIMELINE, BOOKS, WORDLE, ESCAPE } from './content.js';
-import { WORDLE_OK } from './wordle-words.js';
 import { shuffle, scrambleOrder, seeded } from './logic.js';
 import { content } from './text.js';
 import { tlComparable } from './pool.js';
@@ -167,13 +166,8 @@ export function wdScore(guess, answer) {
   guess.forEach((c, i) => { if (out[i] !== 'g' && left[c]) { out[i] = 'y'; left[c]--; } });
   return out.join('');
 }
-/** Is this a word the game accepts? English guesses must be real (KJV) words; Kannada ones aren't checked. */
-export function wdValid(guess, answer) {
-  if (guess.length !== answer.length) return false;
-  if (isKannada(answer.join(''))) return true;
-  const w = guess.join('');
-  return w === answer.join('') || WORDLE_OK.has(w);
-}
+/** Can this guess be entered? Every tile must be filled; any letters are allowed (no word list). */
+export const wdValid = (guess, answer) => answer.every((_, i) => !!guess[i]);
 export const WD_ROWS_EN = ['QWERTYUIOP', 'ASDFGHJKL', 'ZXCVBNM'];
 /** Kannada keys: the word's aksharas plus decoys from the other words, in full rows of 6. */
 export function wdKeys(item, C = content()) {
