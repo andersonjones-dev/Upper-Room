@@ -43,6 +43,9 @@ export async function createLocalNet() {
   const watchers = new Set();
   const notify = () => watchers.forEach((w) => w());
   chan.onmessage = notify;
+  // A BroadcastChannel message can arrive before another tab's localStorage write is visible here;
+  // the 'storage' event only fires once it is, so listening to both never misses a change.
+  window.addEventListener('storage', (e) => { if (e.key === KEY) notify(); });
   const commit = (db) => { write(prune(db)); notify(); chan.postMessage(1); };
 
   return {
