@@ -29,14 +29,15 @@ export function tagOf(g, i, C) {
 }
 
 /**
- * Items allowed by the host's settings. book: '' for all books. level: 'e', 'm' or 'h';
+ * Items allowed by the host's settings. books: the quiz books ([] or none for all books; `book` takes one). level: 'e', 'm' or 'h';
  * Easy uses easy items, Medium easy and medium, Hard everything (the hard ones are only in Hard).
  * If a book has too few items at a level, the level is widened rather than leaving the game empty.
  */
-export function eligible(g, total, C, { book = '', level = 'm' } = {}, min = 1) {
+export function eligible(g, total, C, { book = '', books = null, level = 'm' } = {}, min = 1) {
   const all = [...Array(total).keys()];
   const drawable = g === 'pc' ? all.filter((i) => !C.EMOJI[i].nd) : all; // Pictionary skips sayings you can't draw
-  const inBook = book ? drawable.filter((i) => tagOf(g, i, C).book === book) : drawable;
+  const list = books && books.length ? books : book ? [book] : [];
+  const inBook = list.length ? drawable.filter((i) => list.includes(tagOf(g, i, C).book)) : drawable;
   const upto = LEVELS.indexOf(level) < 0 ? 1 : LEVELS.indexOf(level);
   for (let k = upto; k < LEVELS.length; k++) {
     const ok = inBook.filter((i) => LEVELS.indexOf(tagOf(g, i, C).d) <= k);

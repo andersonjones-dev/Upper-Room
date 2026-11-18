@@ -1,4 +1,4 @@
-// Quiz book + difficulty: the host picks Ruth and Hard. Every round must come from Ruth, Verse Scramble
+// Quiz books + difficulty: the host tries the book picker, then picks Ruth and Hard. Every round must come from Ruth, Verse Scramble
 // shows two stray pieces, Hangman has four lives, the timer is shorter, and nothing repeats between games.
 // Usage: node tests/e2e-quiz.cjs <base-url> <screenshot-dir>
 const { chromium } = require('playwright');
@@ -22,9 +22,17 @@ const SHOTS = process.argv[3] || '/tmp/ur-shots';
   await ben.goto(BASE + '?net=local&join=' + code);
   await ben.fill('#name', 'Ben'); await ben.click('[data-act="color"][data-c="sapphire"]'); await ben.click('[data-act="join"]');
   await ben.waitForSelector("text=You're in.");
-  await host.click('[data-act="quizBook"][data-v="Ruth"]');
+  // the book picker: a dropdown that opens a sheet; pick two, take one off, then back to all and to Ruth
+  await host.click('[data-act="bookSheet"]');
+  await host.click('[data-act="quizBook"][data-v="Acts"]'); await host.click('[data-act="quizBook"][data-v="Ruth"]');
+  await host.waitForFunction(() => JSON.stringify(__ur.room.meta.books) === '["Ruth","Acts"]');
+  await host.screenshot({ path: `${SHOTS}/quiz-00-books.png` });
+  await host.click('[data-act="quizBook"][data-v=""]');
+  await host.waitForFunction(() => !__ur.room.meta.books);
+  await host.click('[data-act="quizBook"][data-v="Ruth"]'); await host.click('[data-act="closeSheet"]');
+  if ((await host.textContent('.dd')).trim() !== 'Ruth') errors.push('dropdown label ' + (await host.textContent('.dd')));
   await host.click('[data-act="level"][data-v="h"]');
-  await host.waitForFunction(() => __ur.room.meta.book === 'Ruth' && __ur.room.meta.level === 'h');
+  await host.waitForFunction(() => JSON.stringify(__ur.room.meta.books) === '["Ruth"]' && __ur.room.meta.level === 'h');
   await host.locator('[data-k="quiz"]').scrollIntoViewIfNeeded();
   await host.screenshot({ path: `${SHOTS}/quiz-01-lobby.png` });
   const ov = (p) => p.evaluate(() => { const v = document.getElementById('view'); return v.scrollHeight - v.clientHeight; });
@@ -35,7 +43,7 @@ const SHOTS = process.argv[3] || '/tmp/ur-shots';
     await host.click('[data-act="start"]');
     await ben.waitForFunction(() => __ur.room.round && __ur.room.round.phase === 'play', null, { timeout: 25000 });
     const rd = await ben.evaluate(() => __ur.room.round);
-    if (rd.level !== 'h' || rd.book !== 'Ruth') errors.push(g + ': round settings ' + rd.level + ' ' + rd.book);
+    if (rd.level !== 'h' || JSON.stringify(rd.books) !== '["Ruth"]') errors.push(g + ': round settings ' + rd.level + ' ' + JSON.stringify(rd.books));
     rd.seq.forEach((i) => { if (P.tagOf(g, i, C).book !== 'Ruth') errors.push(`${g}: item ${i} is not from Ruth`); });
     return rd;
   };

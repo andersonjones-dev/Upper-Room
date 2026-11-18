@@ -4,7 +4,7 @@
 
 export const STR = {
   en: {
-    settings: 'Settings', back: 'Back', close: 'Close', language: 'Language', langNote: 'Each phone picks its own language.',
+    settings: 'Settings', back: 'Back', close: 'Close', done: 'Done', language: 'Language', langNote: 'Each phone picks its own language.',
     heroTitle: 'Gather<br>the room.', heroSub: 'Everyone plays on their own phone. This one becomes the table.',
     hostRoom: 'Host a room', connecting: 'Connecting…', joinCode: 'Join with a code', aboutLink: '© 2026 Anderson Jones · About',
     gamesReady: '{n} games ready', moreSoon: '{n} more on the way',
@@ -43,10 +43,10 @@ export const STR = {
     room: 'Room', menuLeave: 'Settings and leave room', youreIn: "You're in.", choosing: 'The host is choosing a game', upNext: 'Up next',
     switchTeam: 'Switch team', readyWaiting: 'Ready · waiting for the host', imReady: "I'm ready",
     firstRight: 'First right answer · +{p}', rightP: 'Right · +{p}', outOfTime: 'Out of time', notThisTime: 'Not this time',
-    quizBook: 'Quiz book', allBooks: 'All books', difficulty: 'Difficulty', lv_e: 'Easy', lv_m: 'Medium', lv_h: 'Hard',
+    quizBook: 'Quiz books', allBooks: 'All books', difficulty: 'Difficulty', lv_e: 'Easy', lv_m: 'Medium', lv_h: 'Hard',
     lvHint_e: 'Easy: the best-known stories, verses and people.', lvHint_m: 'Medium: easy and medium questions.',
     lvHint_h: 'Hard: everything, with shorter timers, 4 Hangman lives and 2 stray pieces in Verse Scramble.',
-    onlyBook: 'Every game uses only {b}.', bkAllBooks: 'Books Sort always uses all 66 books.',
+    onlyBook: 'Every game uses only {b}.', onlyBooks: 'Every game uses only these books: {b}.', pickBooks: 'Choose one or more books. Every game draws from these.', bkAllBooks: 'Books Sort always uses all 66 books.',
     tapInOrderDecoy: 'Tap the pieces in order. Two of them don’t belong.',
     wdEnter: 'Enter', wdDelete: 'Delete', wdShort: 'Not enough letters', wdClearSlot: 'Clear letter {n}', wdPickSlot: 'Type in box {n}', 
     tourT: 'Tournament night', tourOff: 'Play a few games in a row. Places in each game add up to one champion.', tourPick: 'Tap games above to add them in playing order (2 to 5). Tap a name to change its settings.',
@@ -90,10 +90,35 @@ export const STR = {
     ruleRank: 'Each round: 1st 300 · 2nd 200 · other finishers 100 · not finished 0. Tall bars are first places.',
     ruleTrivia: 'Each round: first right answer 200 · other right answers 100 · wrong or no answer 0. Tall bars are first places.',
     bibleVerses: 'Bible verses', sameAsApp: 'Same as app', verseNote: 'Verse Scramble and Finish the Verse show verses in this language.',
-    secs: '{n}s', ordinal: '{n}'
+    secs: '{n}s', ordinal: '{n}',
+    myQuizzes: 'My quizzes', qzHome: 'Write your own questions', qzMine: 'My quizzes', qzUntitled: 'Untitled quiz',
+    qzIntro: 'Write your own questions for a Sunday class, youth night or VBS, then play them in any room.',
+    qzNone: 'No quizzes on this phone yet.', qzMeta: '{n} questions · code {c}', qzMeta1: '1 question · code {c}', qzNQs: '{n} Qs',
+    qzNew: 'New quiz', qzPaste: 'Paste questions', qzOpenCode: 'Open with a code', qzOpenB: 'Open quiz',
+    qzOpenHint: 'Type the 6-character quiz code. You can open a quiz on any phone, and anyone with the code can change it.',
+    qzCodeSix: 'A quiz code has 6 letters and numbers.', qzNoCode: 'No quiz has the code {c}. Check it and try again.',
+    qzWriteDown: 'Write your quiz code down', qzWriteDownB: 'It is the only way to open this quiz on another phone. If you lose this phone and don’t have the code, the quiz can’t be found again.',
+    qzWriteDownAll: 'Each quiz is saved online under its own code. The code is the only way to open a quiz on another phone, so note it down somewhere safe.',
+    qzCode: 'Quiz code', qzCodeSoon: 'Your quiz gets its code as soon as you write the first question.', qzShareCode: 'Share code',
+    qzShareText: 'Upper Room quiz “{n}”. Quiz code: {c}. Open {u}, then My quizzes › Open with a code.',
+    qzCopied: 'Copied the quiz code and how to open it.', qzCodeIs: 'Quiz code: {c}',
+    qzSaving: 'Saving…', qzSaved: 'Saved online', qzSaveErr: 'Not saved yet. Check your connection; it will try again when you edit.', qzNotYet: 'Not saved yet',
+    qzEdit: 'Edit quiz', qzName: 'Quiz name', qzNamePh: 'e.g. Sunday class · Acts 1–4', qzQs: 'Questions', qzCount: '{n} questions · {r} ready to play', qzCount1: '1 question · {r} ready to play',
+    qzNewQ: 'New question', qzQn: 'Question {n}', qzQPh: 'Type the question', qzTapRight: 'Answers. Tap the circle next to the right one.',
+    qzAns: 'Answer {l}', qzAnsOpt: 'Answer {l} (optional)', qzMarkL: 'Make answer {l} the right one', qzRefPh: 'Bible reference or note (optional)',
+    qzDel: 'Delete question', qzUp: 'Move up', qzDown: 'Move down', qzAdd: '+ Add question', qzPasteMany: 'Paste many',
+    qzPlay: 'Play this quiz', qzNeedOne: 'Finish a question to play', qzCopy: 'Make a copy', qzCopyName: '(copy)',
+    qzForget: 'Remove from this phone', qzForgetSure: 'Tap again to remove',
+    qzNeedQ: 'Type the question', qzNeed2: 'Needs at least 2 answers', qzNeedRight: 'Mark the right answer', qzNeedStar: 'Put * before the right answer', qzMax4: 'At most 4 answers',
+    qzPasteHow: 'Paste from Notes or WhatsApp, or type. A question, then each answer on its own line with * before the right one. Leave a blank line before the next question. “Ref:” adds a reference.',
+    qzPasteEx: 'Who was chosen in place of Judas?\nBarsabas\n*Matthias\nStephen\nRef: Acts 1:26',
+    qzPastePh: 'Paste or type your questions here', qzReady: '{n} ready', qzToFix: '{n} to fix', qzAddN: 'Add {n} questions', qzAdd1: 'Add 1 question', qzNothing: 'Nothing to add yet',
+    qzWhich: 'Quiz', qzNoneHere: 'No quizzes on this phone yet. Write one, or open one with its code.', qzWriteEdit: 'Write, edit or open a quiz',
+    qzOrder: 'Order', qzInOrder: 'In my order', qzShuffle: 'Shuffle', qzPlayAs: 'Play as', qzEveryone: 'Everyone', qzTeams: 'Two teams',
+    qzPickFirst: 'Pick a quiz first', qzEmpty: 'This quiz has no finished questions yet.', qzItWas: 'It was {a}.', voteInQ: 'Answer in · you can change it until time runs out'
   },
   kn: {
-    settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು', back: 'ಹಿಂದೆ', close: 'ಮುಚ್ಚಿ', language: 'ಭಾಷೆ', langNote: 'ಪ್ರತಿ ಫೋನ್ ತನ್ನದೇ ಭಾಷೆಯನ್ನು ಆರಿಸಿಕೊಳ್ಳುತ್ತದೆ.',
+    settings: 'ಸೆಟ್ಟಿಂಗ್‌ಗಳು', back: 'ಹಿಂದೆ', close: 'ಮುಚ್ಚಿ', done: 'ಆಯಿತು', language: 'ಭಾಷೆ', langNote: 'ಪ್ರತಿ ಫೋನ್ ತನ್ನದೇ ಭಾಷೆಯನ್ನು ಆರಿಸಿಕೊಳ್ಳುತ್ತದೆ.',
     heroTitle: 'ಎಲ್ಲರನ್ನೂ<br>ಒಟ್ಟುಗೂಡಿಸಿ.', heroSub: 'ಪ್ರತಿಯೊಬ್ಬರೂ ತಮ್ಮ ಫೋನ್‌ನಲ್ಲೇ ಆಡುತ್ತಾರೆ. ಈ ಫೋನ್ ಆಟದ ಮೇಜು ಆಗುತ್ತದೆ.',
     hostRoom: 'ರೂಮ್ ಆಯೋಜಿಸಿ', connecting: 'ಸಂಪರ್ಕಿಸಲಾಗುತ್ತಿದೆ…', joinCode: 'ಕೋಡ್ ಬಳಸಿ ಸೇರಿ', aboutLink: '© 2026 Anderson Jones · ಮಾಹಿತಿ',
     gamesReady: '{n} ಆಟಗಳು ಸಿದ್ಧ', moreSoon: 'ಇನ್ನೂ {n} ಬರಲಿವೆ',
@@ -135,7 +160,7 @@ export const STR = {
     quizBook: 'ಕ್ವಿಜ್ ಪುಸ್ತಕ', allBooks: 'ಎಲ್ಲಾ ಪುಸ್ತಕಗಳು', difficulty: 'ಕಠಿಣತೆ', lv_e: 'ಸುಲಭ', lv_m: 'ಮಧ್ಯಮ', lv_h: 'ಕಠಿಣ',
     lvHint_e: 'ಸುಲಭ: ಎಲ್ಲರಿಗೂ ಗೊತ್ತಿರುವ ಕಥೆಗಳು, ವಚನಗಳು, ವ್ಯಕ್ತಿಗಳು.', lvHint_m: 'ಮಧ್ಯಮ: ಸುಲಭ ಮತ್ತು ಮಧ್ಯಮ ಪ್ರಶ್ನೆಗಳು.',
     lvHint_h: 'ಕಠಿಣ: ಎಲ್ಲಾ ಪ್ರಶ್ನೆಗಳು; ಕಡಿಮೆ ಸಮಯ, ಹ್ಯಾಂಗ್‌ಮ್ಯಾನ್‌ನಲ್ಲಿ 4 ಜೀವಗಳು, ವಚನ ಜೋಡಣೆಯಲ್ಲಿ 2 ಬೇರೆ ತುಂಡುಗಳು.',
-    onlyBook: 'ಎಲ್ಲಾ ಆಟಗಳು {b} ಪುಸ್ತಕದಿಂದ ಮಾತ್ರ.', bkAllBooks: 'ಪುಸ್ತಕಗಳ ಕ್ರಮ ಆಟ ಯಾವಾಗಲೂ 66 ಪುಸ್ತಕಗಳನ್ನೂ ಬಳಸುತ್ತದೆ.',
+    onlyBook: 'ಎಲ್ಲಾ ಆಟಗಳು {b} ಪುಸ್ತಕದಿಂದ ಮಾತ್ರ.', onlyBooks: 'ಎಲ್ಲಾ ಆಟಗಳು ಈ ಪುಸ್ತಕಗಳಿಂದ ಮಾತ್ರ: {b}.', pickBooks: 'ಒಂದು ಅಥವಾ ಹೆಚ್ಚು ಪುಸ್ತಕಗಳನ್ನು ಆರಿಸಿ. ಎಲ್ಲಾ ಆಟಗಳು ಇವುಗಳಿಂದಲೇ.', bkAllBooks: 'ಪುಸ್ತಕಗಳ ಕ್ರಮ ಆಟ ಯಾವಾಗಲೂ 66 ಪುಸ್ತಕಗಳನ್ನೂ ಬಳಸುತ್ತದೆ.',
     tapInOrderDecoy: 'ತುಂಡುಗಳನ್ನು ಕ್ರಮವಾಗಿ ಒತ್ತಿ. ಅವುಗಳಲ್ಲಿ ಎರಡು ಈ ವಚನದವಲ್ಲ.',
     wdEnter: 'ನಮೂದಿಸಿ', wdDelete: 'ಅಳಿಸಿ', wdShort: 'ಅಕ್ಷರಗಳು ಸಾಲದು', wdClearSlot: '{n}ನೇ ಅಕ್ಷರ ಅಳಿಸಿ', wdPickSlot: '{n}ನೇ ಚೌಕದಲ್ಲಿ ಬರೆಯಿರಿ', 
     tourT: 'ಪಂದ್ಯಾವಳಿ ರಾತ್ರಿ', tourOff: 'ಕೆಲವು ಆಟಗಳನ್ನು ಸತತವಾಗಿ ಆಡಿ. ಪ್ರತಿ ಆಟದ ಸ್ಥಾನಗಳು ಸೇರಿ ಒಬ್ಬ ಚಾಂಪಿಯನ್.', tourPick: 'ಮೇಲಿನ ಆಟಗಳನ್ನು ಆಡುವ ಕ್ರಮದಲ್ಲಿ ತಟ್ಟಿ ಸೇರಿಸಿ (2 ರಿಂದ 5). ಸೆಟ್ಟಿಂಗ್ ಬದಲಿಸಲು ಹೆಸರನ್ನು ತಟ್ಟಿ.',
@@ -179,7 +204,32 @@ export const STR = {
     ruleRank: 'ಪ್ರತಿ ಸುತ್ತು: 1ನೇ 300 · 2ನೇ 200 · ಮುಗಿಸಿದ ಇತರರು 100 · ಮುಗಿಸದಿದ್ದರೆ 0. ಎತ್ತರದ ಕಂಬಿಗಳು ಮೊದಲ ಸ್ಥಾನಗಳು.',
     ruleTrivia: 'ಪ್ರತಿ ಸುತ್ತು: ಮೊದಲ ಸರಿ ಉತ್ತರ 200 · ಇತರ ಸರಿ ಉತ್ತರಗಳು 100 · ತಪ್ಪು ಅಥವಾ ಉತ್ತರವಿಲ್ಲದಿದ್ದರೆ 0. ಎತ್ತರದ ಕಂಬಿಗಳು ಮೊದಲ ಸ್ಥಾನಗಳು.',
     bibleVerses: 'ಬೈಬಲ್ ವಚನಗಳು', sameAsApp: 'ಆ್ಯಪ್‌ನಂತೆ', verseNote: 'ವಚನ ಜೋಡಣೆ ಮತ್ತು ವಚನ ಪೂರ್ಣಗೊಳಿಸಿ ಆಟಗಳಲ್ಲಿ ವಚನಗಳು ಈ ಭಾಷೆಯಲ್ಲಿ ಕಾಣಿಸುತ್ತವೆ.',
-    secs: '{n} ಸೆ', ordinal: '{n}ನೇ'
+    secs: '{n} ಸೆ', ordinal: '{n}ನೇ',
+    myQuizzes: 'ನನ್ನ ಕ್ವಿಜ್‌ಗಳು', qzHome: 'ನಿಮ್ಮದೇ ಪ್ರಶ್ನೆಗಳನ್ನು ಬರೆಯಿರಿ', qzMine: 'ನನ್ನ ಕ್ವಿಜ್‌ಗಳು', qzUntitled: 'ಹೆಸರಿಲ್ಲದ ಕ್ವಿಜ್',
+    qzIntro: 'ಭಾನುವಾರದ ತರಗತಿ, ಯುವ ಕೂಟ ಅಥವಾ ವಿಬಿಎಸ್‌ಗಾಗಿ ನಿಮ್ಮದೇ ಪ್ರಶ್ನೆಗಳನ್ನು ಬರೆದು ಯಾವುದೇ ಕೊಠಡಿಯಲ್ಲಿ ಆಡಿ.',
+    qzNone: 'ಈ ಫೋನ್‌ನಲ್ಲಿ ಇನ್ನೂ ಯಾವುದೇ ಕ್ವಿಜ್ ಇಲ್ಲ.', qzMeta: '{n} ಪ್ರಶ್ನೆಗಳು · ಸಂಕೇತ {c}', qzNQs: '{n} ಪ್ರ',
+    qzNew: 'ಹೊಸ ಕ್ವಿಜ್', qzPaste: 'ಪ್ರಶ್ನೆಗಳನ್ನು ಅಂಟಿಸಿ', qzOpenCode: 'ಸಂಕೇತದಿಂದ ತೆರೆಯಿರಿ', qzOpenB: 'ಕ್ವಿಜ್ ತೆರೆಯಿರಿ',
+    qzOpenHint: '6 ಅಕ್ಷರಗಳ ಕ್ವಿಜ್ ಸಂಕೇತವನ್ನು ಟೈಪ್ ಮಾಡಿ. ಯಾವುದೇ ಫೋನ್‌ನಲ್ಲಿ ತೆರೆಯಬಹುದು; ಸಂಕೇತ ಇರುವ ಯಾರಾದರೂ ಬದಲಿಸಬಹುದು.',
+    qzCodeSix: 'ಕ್ವಿಜ್ ಸಂಕೇತದಲ್ಲಿ 6 ಅಕ್ಷರ/ಅಂಕಿಗಳಿವೆ.', qzNoCode: '{c} ಸಂಕೇತದ ಕ್ವಿಜ್ ಇಲ್ಲ. ಪರಿಶೀಲಿಸಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸಿ.',
+    qzWriteDown: 'ನಿಮ್ಮ ಕ್ವಿಜ್ ಸಂಕೇತವನ್ನು ಬರೆದಿಟ್ಟುಕೊಳ್ಳಿ', qzWriteDownB: 'ಬೇರೆ ಫೋನ್‌ನಲ್ಲಿ ಈ ಕ್ವಿಜ್ ತೆರೆಯಲು ಇದೊಂದೇ ದಾರಿ. ಈ ಫೋನ್ ಕಳೆದುಹೋಗಿ ಸಂಕೇತವೂ ಇಲ್ಲದಿದ್ದರೆ, ಕ್ವಿಜ್ ಮತ್ತೆ ಸಿಗುವುದಿಲ್ಲ.',
+    qzWriteDownAll: 'ಪ್ರತಿ ಕ್ವಿಜ್ ತನ್ನದೇ ಸಂಕೇತದೊಂದಿಗೆ ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಉಳಿಯುತ್ತದೆ. ಬೇರೆ ಫೋನ್‌ನಲ್ಲಿ ತೆರೆಯಲು ಸಂಕೇತವೊಂದೇ ದಾರಿ, ಆದ್ದರಿಂದ ಅದನ್ನು ಸುರಕ್ಷಿತವಾಗಿ ಬರೆದಿಡಿ.',
+    qzCode: 'ಕ್ವಿಜ್ ಸಂಕೇತ', qzCodeSoon: 'ಮೊದಲ ಪ್ರಶ್ನೆ ಬರೆದ ಕೂಡಲೇ ನಿಮ್ಮ ಕ್ವಿಜ್‌ಗೆ ಸಂಕೇತ ಸಿಗುತ್ತದೆ.', qzShareCode: 'ಸಂಕೇತ ಹಂಚಿ',
+    qzShareText: 'ಅಪ್ಪರ್ ರೂಮ್ ಕ್ವಿಜ್ “{n}”. ಕ್ವಿಜ್ ಸಂಕೇತ: {c}. {u} ತೆರೆಯಿರಿ, ನಂತರ ನನ್ನ ಕ್ವಿಜ್‌ಗಳು › ಸಂಕೇತದಿಂದ ತೆರೆಯಿರಿ.',
+    qzCopied: 'ಕ್ವಿಜ್ ಸಂಕೇತ ನಕಲಿಸಲಾಗಿದೆ.', qzCodeIs: 'ಕ್ವಿಜ್ ಸಂಕೇತ: {c}',
+    qzSaving: 'ಉಳಿಸಲಾಗುತ್ತಿದೆ…', qzSaved: 'ಆನ್‌ಲೈನ್‌ನಲ್ಲಿ ಉಳಿಸಲಾಗಿದೆ', qzSaveErr: 'ಇನ್ನೂ ಉಳಿದಿಲ್ಲ. ಸಂಪರ್ಕ ಪರಿಶೀಲಿಸಿ; ಮುಂದಿನ ಬದಲಾವಣೆಯಲ್ಲಿ ಮತ್ತೆ ಪ್ರಯತ್ನಿಸುತ್ತದೆ.', qzNotYet: 'ಇನ್ನೂ ಉಳಿಸಿಲ್ಲ',
+    qzEdit: 'ಕ್ವಿಜ್ ಬದಲಿಸಿ', qzName: 'ಕ್ವಿಜ್ ಹೆಸರು', qzNamePh: 'ಉದಾ. ಭಾನುವಾರದ ತರಗತಿ · ಅ.ಕೃ. 1–4', qzQs: 'ಪ್ರಶ್ನೆಗಳು', qzCount: '{n} ಪ್ರಶ್ನೆಗಳು · {r} ಆಡಲು ಸಿದ್ಧ',
+    qzNewQ: 'ಹೊಸ ಪ್ರಶ್ನೆ', qzQn: 'ಪ್ರಶ್ನೆ {n}', qzQPh: 'ಪ್ರಶ್ನೆಯನ್ನು ಟೈಪ್ ಮಾಡಿ', qzTapRight: 'ಉತ್ತರಗಳು. ಸರಿಯಾದ ಉತ್ತರದ ಪಕ್ಕದ ವೃತ್ತವನ್ನು ಒತ್ತಿ.',
+    qzAns: 'ಉತ್ತರ {l}', qzAnsOpt: 'ಉತ್ತರ {l} (ಐಚ್ಛಿಕ)', qzMarkL: 'ಉತ್ತರ {l} ಸರಿ ಎಂದು ಗುರುತಿಸಿ', qzRefPh: 'ಬೈಬಲ್ ವಚನ ಅಥವಾ ಟಿಪ್ಪಣಿ (ಐಚ್ಛಿಕ)',
+    qzDel: 'ಪ್ರಶ್ನೆ ಅಳಿಸಿ', qzUp: 'ಮೇಲೆ', qzDown: 'ಕೆಳಗೆ', qzAdd: '+ ಪ್ರಶ್ನೆ ಸೇರಿಸಿ', qzPasteMany: 'ಹಲವು ಅಂಟಿಸಿ',
+    qzPlay: 'ಈ ಕ್ವಿಜ್ ಆಡಿ', qzNeedOne: 'ಆಡಲು ಒಂದು ಪ್ರಶ್ನೆ ಪೂರ್ಣಗೊಳಿಸಿ', qzCopy: 'ನಕಲು ಮಾಡಿ', qzCopyName: '(ನಕಲು)',
+    qzForget: 'ಈ ಫೋನ್‌ನಿಂದ ತೆಗೆಯಿರಿ', qzForgetSure: 'ತೆಗೆಯಲು ಮತ್ತೆ ಒತ್ತಿ',
+    qzNeedQ: 'ಪ್ರಶ್ನೆ ಟೈಪ್ ಮಾಡಿ', qzNeed2: 'ಕನಿಷ್ಠ 2 ಉತ್ತರಗಳು ಬೇಕು', qzNeedRight: 'ಸರಿಯಾದ ಉತ್ತರ ಗುರುತಿಸಿ', qzNeedStar: 'ಸರಿಯಾದ ಉತ್ತರದ ಮುಂದೆ * ಹಾಕಿ', qzMax4: 'ಗರಿಷ್ಠ 4 ಉತ್ತರಗಳು',
+    qzPasteHow: 'Notes ಅಥವಾ WhatsApp‌ನಿಂದ ಅಂಟಿಸಿ, ಅಥವಾ ಟೈಪ್ ಮಾಡಿ. ಮೊದಲು ಪ್ರಶ್ನೆ, ನಂತರ ಪ್ರತಿ ಉತ್ತರ ಬೇರೆ ಸಾಲಿನಲ್ಲಿ; ಸರಿಯಾದ ಉತ್ತರದ ಮುಂದೆ *. ಮುಂದಿನ ಪ್ರಶ್ನೆಗೆ ಮೊದಲು ಒಂದು ಖಾಲಿ ಸಾಲು. “ವಚನ:” ಎಂದು ವಚನ ಸೇರಿಸಿ.',
+    qzPasteEx: 'ಯೂದನ ಸ್ಥಾನಕ್ಕೆ ಯಾರನ್ನು ಆರಿಸಲಾಯಿತು?\nಬಾರ್ಸಬ\n*ಮತ್ತೀಯ\nಸ್ತೆಫನ\nವಚನ: ಅಪೊಸ್ತಲರ ಕೃತ್ಯಗಳು 1:26',
+    qzPastePh: 'ನಿಮ್ಮ ಪ್ರಶ್ನೆಗಳನ್ನು ಇಲ್ಲಿ ಅಂಟಿಸಿ ಅಥವಾ ಟೈಪ್ ಮಾಡಿ', qzReady: '{n} ಸಿದ್ಧ', qzToFix: '{n} ಸರಿಪಡಿಸಬೇಕು', qzAddN: '{n} ಪ್ರಶ್ನೆಗಳನ್ನು ಸೇರಿಸಿ', qzNothing: 'ಸೇರಿಸಲು ಇನ್ನೂ ಏನೂ ಇಲ್ಲ',
+    qzWhich: 'ಕ್ವಿಜ್', qzNoneHere: 'ಈ ಫೋನ್‌ನಲ್ಲಿ ಇನ್ನೂ ಕ್ವಿಜ್ ಇಲ್ಲ. ಒಂದನ್ನು ಬರೆಯಿರಿ ಅಥವಾ ಸಂಕೇತದಿಂದ ತೆರೆಯಿರಿ.', qzWriteEdit: 'ಕ್ವಿಜ್ ಬರೆಯಿರಿ, ಬದಲಿಸಿ ಅಥವಾ ತೆರೆಯಿರಿ',
+    qzOrder: 'ಕ್ರಮ', qzInOrder: 'ನನ್ನ ಕ್ರಮದಲ್ಲಿ', qzShuffle: 'ಕಲಸಿ', qzPlayAs: 'ಹೇಗೆ ಆಡುವುದು', qzEveryone: 'ಎಲ್ಲರೂ', qzTeams: 'ಎರಡು ತಂಡಗಳು',
+    qzPickFirst: 'ಮೊದಲು ಕ್ವಿಜ್ ಆರಿಸಿ', qzEmpty: 'ಈ ಕ್ವಿಜ್‌ನಲ್ಲಿ ಇನ್ನೂ ಪೂರ್ಣ ಪ್ರಶ್ನೆಗಳಿಲ್ಲ.', qzItWas: 'ಉತ್ತರ: {a}.', voteInQ: 'ಉತ್ತರ ಕಳುಹಿಸಲಾಗಿದೆ · ಸಮಯ ಮುಗಿಯುವವರೆಗೆ ಬದಲಿಸಬಹುದು'
   }
 };
 
@@ -194,10 +244,11 @@ export const GAME_TEXT = {
     hu: ['ಹೆಡ್ಸ್ ಅಪ್', 'ತಂಡಗಳು ಸರದಿಯಂತೆ ಆಡುತ್ತವೆ. ಒಬ್ಬರು ಊಹಿಸುತ್ತಾರೆ; ಉಳಿದವರ ಫೋನ್‌ನಲ್ಲಿ ಬೈಬಲ್ ಹೆಸರು ಅಥವಾ ವಸ್ತು ಕಾಣುತ್ತದೆ. ಊಹಿಸುವವರ ತಂಡ ಪದವನ್ನು ಹೇಳದೆ ಸುಳಿವು ಕೊಡುತ್ತದೆ. ಸಮಯ ಮುಗಿಯುವ ಮೊದಲು ಸಾಧ್ಯವಾದಷ್ಟು ಸಿಕ್ಕಿತು ಅಥವಾ ಮುಂದೆ.'], wd: ['ಬೈಬಲ್ ವರ್ಡಲ್', 'ಎಲ್ಲರೂ ತಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಒಂದೇ ಬೈಬಲ್ ಪದವನ್ನು ಆರು ಪ್ರಯತ್ನಗಳಲ್ಲಿ ಊಹಿಸುತ್ತಾರೆ. ಬಣ್ಣದ ಚೌಕಗಳು ಸರಿಯಾದ ಸ್ಥಾನದ ಅಕ್ಷರಗಳನ್ನೂ ಪದದಲ್ಲಿರುವ ಆದರೆ ಬೇರೆ ಸ್ಥಾನದ ಅಕ್ಷರಗಳನ್ನೂ ತೋರಿಸುತ್ತವೆ. ಕಡಿಮೆ ಪ್ರಯತ್ನದಲ್ಲಿ ಬಿಡಿಸಿದವರು ಗೆಲ್ಲುವರು; ಸಮವಾದರೆ ಸಮಯ ನಿರ್ಧರಿಸುತ್ತದೆ.'],
     em: ['ಎಮೋಜಿ ಬೈಬಲ್', 'ಎಮೋಜಿಗಳಿಂದ ಬೈಬಲ್ ಕಥೆಯನ್ನು ಊಹಿಸಿ. ಉತ್ತರ ಟೈಪ್ ಮಾಡಿ (ಕನ್ನಡ ಅಥವಾ ಇಂಗ್ಲಿಷ್); ಮೊದಲು ಸರಿ ಉತ್ತರಿಸಿದವರಿಗೆ ಹೆಚ್ಚು ಅಂಕ.'],
     ex: ['ಐಗುಪ್ತದಿಂದ ಪಾರು', 'ಎಲ್ಲರೂ ಸೇರಿ ಒಂದೊಂದೇ ಬೀಗವನ್ನು ತೆರೆದು ಐಗುಪ್ತದಿಂದ ತಪ್ಪಿಸಿಕೊಳ್ಳುತ್ತಾರೆ. ಪ್ರತಿ ಫೋನ್‌ನಲ್ಲಿ ಬೇರೆ ಬೇರೆ ಸುಳಿವುಗಳಿವೆ; ಪ್ರತಿ ಸುಳಿವು ಸಂಕೇತದ ಒಂದು ಅಂಕಿಯನ್ನು ಕೊಡುತ್ತದೆ. ಮಾತನಾಡಿ, ಸಂಕೇತ ಕಂಡುಹಿಡಿದು ಸಮಯ ಮುಗಿಯುವ ಮೊದಲು ನಮೂದಿಸಿ. ತಪ್ಪು ಸಂಕೇತ ಆ ಫೋನನ್ನು 3 ಸೆಕೆಂಡು ಬೀಗ ಹಾಕುತ್ತದೆ.'], tr: ['ಹನ್ನೆರಡು ಕುಲಗಳು', 'ಎರಡು ತಂಡಗಳು. ಪ್ರತಿ ಪ್ರಶ್ನೆಗೆ ಮೊದಲ ಸರಿ ಉತ್ತರ ನೀಡಿದ ತಂಡ ನಕ್ಷೆಯಲ್ಲಿ ಭೂಮಿಯನ್ನು ಪಡೆಯುತ್ತದೆ.'],
+    qm: ['ನಿಮ್ಮ ಕ್ವಿಜ್', 'ನಿಮ್ಮ ಕ್ವಿಜ್ ಮಾಸ್ಟರ್ ಬರೆದ ಪ್ರಶ್ನೆಗಳು. ಎಲ್ಲರೂ ತಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಉತ್ತರಿಸುತ್ತಾರೆ; ಪ್ರತಿ ಸರಿ ಉತ್ತರಕ್ಕೆ 100, ಮೊದಲ ಸರಿ ಉತ್ತರಕ್ಕೆ 200. ಸಮಯ ಮುಗಿಯುವವರೆಗೆ ಉತ್ತರ ಬದಲಿಸಬಹುದು, ಆದರೆ ಬದಲಿಸಿದರೆ ನಿಮ್ಮ ಸಮಯ ಮತ್ತೆ ಆರಂಭವಾಗುತ್ತದೆ.'],
     hg: ['ಬೈಬಲ್ ಪದ ಊಹೆ', 'ಎಲ್ಲರೂ ತಮ್ಮ ಫೋನ್‌ನಲ್ಲಿ ಒಂದೇ ಗುಪ್ತ ಪದವನ್ನು ಒಂದೊಂದು ಅಕ್ಷರವಾಗಿ ಬಿಡಿಸುತ್ತಾರೆ. ಆರು ತಪ್ಪು ಅಕ್ಷರಗಳಾದರೆ ನೀವು ಹೊರಗೆ. ಬೇಗ ಬಿಡಿಸಿದವರು ಗೆಲ್ಲುವರು.']
   }
 };
-export const MODE_KN = { Draw: 'ಚಿತ್ರ', Race: 'ಓಟ', Vote: 'ಮತ', Teams: 'ತಂಡಗಳು', Place: 'ಇರಿಸಿ', Daily: 'ದಿನದ ಆಟ', Buzz: 'ಬಜ್', 'Co-op': 'ಸಹಕಾರ' };
+export const MODE_KN = { Draw: 'ಚಿತ್ರ', Race: 'ಓಟ', Vote: 'ಮತ', Teams: 'ತಂಡಗಳು', Place: 'ಇರಿಸಿ', Daily: 'ದಿನದ ಆಟ', Buzz: 'ಬಜ್', 'Co-op': 'ಸಹಕಾರ', Quiz: 'ಕ್ವಿಜ್' };
 export const TEAM_KN = { ruby: 'ಮಾಣಿಕ್ಯ ತಂಡ', sapphire: 'ನೀಲಮಣಿ ತಂಡ' };
 export const COLOR_KN = { ruby: 'ಕೆಂಪು', sapphire: 'ನೀಲಿ', emerald: 'ಹಸಿರು', amber: 'ಹಳದಿ', amethyst: 'ನೇರಳೆ', teal: 'ನೀಲಿಹಸಿರು' };
 export const CAT_KN = { Person: 'ವ್ಯಕ್ತಿ', Place: 'ಸ್ಥಳ', Thing: 'ವಸ್ತು', Angel: 'ದೇವದೂತ', River: 'ನದಿ', Mountain: 'ಬೆಟ್ಟ', Island: 'ದ್ವೀಪ', Feast: 'ಹಬ್ಬ', Event: 'ಘಟನೆ', Parable: 'ಸಾಮ್ಯ' };

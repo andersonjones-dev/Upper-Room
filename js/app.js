@@ -5,6 +5,7 @@ import * as G from './games.js';
 import * as P from './pool.js';
 import * as EN from './content.js';
 import * as L from './logic.js';
+import * as Q from './quiz.js';
 import { qrSvg } from './qr.js';
 
 /* =================== State =================== */
@@ -22,7 +23,8 @@ const S = {
   drafts: { code: '', name: '', guess: '' },
   sheet: null, joinErr: '', busy: false, toast: '', toastTimer: 0,
   offline: false, confirmClose: 0, local: null, hostBusy: false,
-  waitingSW: null, updateReady: false, updating: false, ttWait: {}
+  waitingSW: null, updateReady: false, updating: false, ttWait: {},
+  qz: null, myQuizzes: load('ur.myQuizzes', [])
 };
 S.drafts.name = S.profile.name || '';
 if (params.get('join')) { S.view = 'join'; S.drafts.code = L.cleanCode(params.get('join')); }
@@ -114,6 +116,7 @@ const settingsFor = (g) => ({ ...(L.SETTINGS[g] ? L.SETTINGS[g].def : {}), ...((
 function sectionsFor() {
   if (S.view === 'join') return viewJoin();
   if (S.view === 'daily') return viewDaily();
+  if (S.view === 'quiz') return viewQuiz();
   if (S.view === 'room') return viewRoom();
   return viewHome();
 }
@@ -137,6 +140,8 @@ function paint() {
     if (el.dataset.draft === 'guess' && S.clearGuess) { el.value = ''; S.clearGuess = false; }
     else if (el !== document.activeElement && el.value !== v) el.value = v;
   });
+  // Quiz editor fields: values are set here, not in the HTML, so typing never redraws the field you're in.
+  $view.querySelectorAll('[data-qf]').forEach((el) => { const v = qfGet(el.dataset.qf); if (el !== document.activeElement && el.value !== v) el.value = v; });
   paintChrome();
   tickTimers();
   pcRender();
@@ -148,7 +153,7 @@ function paintChrome() {
     : (S.toast ? `<div class="update toast" role="status"><span>${esc(S.toast)}</span></div>` : '');
   if ($bar._h !== barHtml) { $bar.innerHTML = barHtml; $bar._h = barHtml; }
   // Sheets
-  const sh = S.sheet === 'menu' ? sheetMenu() : S.sheet === 'qr' ? sheetQr() : S.sheet === 'about' ? sheetAbout() : '';
+  const sh = S.sheet === 'menu' ? sheetMenu() : S.sheet === 'qr' ? sheetQr() : S.sheet === 'about' ? sheetAbout() : S.sheet === 'books' ? sheetBooks() : '';
   if ($overlay._h !== sh) {
     const opening = !$overlay._h && sh;
     $overlay.innerHTML = sh; $overlay._h = sh;
@@ -236,9 +241,159 @@ function viewDaily() {
   return { cls: '', secs };
 }
 
+
+/* =================== Your Quiz: questions written by a quiz master =================== */
+// Each quiz is saved online at quizzes/<CODE>. The code is the key: anyone with it can open and change
+// the quiz, on any phone. This phone keeps a list of the quizzes it has made or opened (ur.myQuizzes).
+const MYQ = 'ur.myQuizzes';
+function qzRemember(code, quiz) {
+  S.myQuizzes = Q.rememberQuiz(S.myQuizzes, { code, name: quiz.name || '', n: Q.playableList(quiz).length, at: Date.now() });
+  save(MYQ, S.myQuizzes);
+}
+const qzTitle = (name) => name || t('qzUntitled');
+function qzStart(mode, back) {
+  S.qz = { sess: 1, dirty: false, mode, back: back || (S.view === 'room' ? 'room' : 'home'), code: null, quiz: { name: '', qs: [Q.blankQuestion()] }, open: 0, status: '', paste: '', openCode: '', openErr: '', busy: false };
+  S.view = 'quiz';
+  ensureNet().catch(() => {});
+}
+/** Read/write an editor field by path: name, paste, openCode, q.<i>.q, q.<i>.o.<k>, q.<i>.r */
+function qfGet(path) {
+  const z = S.qz; if (!z) return '';
+  const p = path.split('.');
+  if (p[0] !== 'q') return z[p[0]] ?? (p[0] === 'name' ? z.quiz.name : '');
+  const y = z.quiz.qs[+p[1]]; if (!y) return '';
+  return p[2] === 'o' ? y.o[+p[3]] || '' : y[p[2]] || '';
+}
+function qfSet(path, v) {
+  const z = S.qz; if (!z) return;
+  const p = path.split('.');
+  if (p[0] === 'name') { z.quiz.name = v.slice(0, Q.LIM.name); qzSaveSoon(); return; }
+  if (p[0] !== 'q') { z[p[0]] = p[0] === 'openCode' ? Q.cleanQuizCode(v) : v; return; }
+  const y = z.quiz.qs[+p[1]]; if (!y) return;
+  if (p[2] === 'o') y.o[+p[3]] = v.slice(0, Q.LIM.o); else y[p[2]] = v.slice(0, Q.LIM[p[2]] || 200);
+  qzSaveSoon();
+}
+const qzHasContent = (quiz) => !!(quiz.name.trim() || quiz.qs.some((y) => y.q.trim() || y.o.some((o) => o.trim())));
+/** Switch the editor to another quiz (or none). Saves still running for the old one can't touch it. */
+function qzReset(patch) { const z = S.qz; clearTimeout(z.timer); Object.assign(z, patch, { sess: (z.sess || 0) + 1, dirty: false }); }
+function qzSaveSoon(ms = 900) {
+  const z = S.qz; if (!z) return;
+  z.dirty = true;
+  clearTimeout(z.timer);
+  z.timer = setTimeout(() => qzSave(), ms);
+}
+async function qzSave() {
+  const z = S.qz; if (!z) return;
+  clearTimeout(z.timer);
+  if (!z.dirty) return;
+  // a snapshot: the editor may move on to another quiz while this save is still running
+  const quiz = Q.normalizeQuiz(z.quiz), sess = z.sess, mine = () => S.qz === z && z.sess === sess;
+  if (!qzHasContent(quiz) || !quiz.qs.length) return;
+  if (z.creating) { qzSaveSoon(600); return; } // the first save is still getting a code
+  z.dirty = false;
+  const data = { name: quiz.name, qs: quiz.qs, n: quiz.qs.length, at: Date.now() }; // a plain time: the first save is a transaction
+  let code = z.code;
+  z.status = 'saving'; paint();
+  try {
+    await ensureNet();
+    if (!code) {
+      z.creating = true;
+      try { for (let i = 0; i < 6 && !code; i++) { const c = Q.makeQuizCode(); if (await S.net.create('quizzes/' + c, data)) code = c; } } finally { z.creating = false; }
+      if (!code) throw new Error('no code');
+      if (mine()) { z.code = code; z.fresh = true; }
+    } else await S.net.set('quizzes/' + code, data);
+    qzRemember(code, quiz);
+    if (mine()) z.status = 'saved';
+  } catch (e) { console.error(e); if (mine()) { z.status = 'error'; z.dirty = true; } }
+  paint();
+}
+async function qzOpen(code) {
+  const z = S.qz; if (!z) return;
+  z.busy = true; z.openErr = ''; paint();
+  try {
+    await ensureNet();
+    const raw = await S.net.get('quizzes/' + code);
+    if (!raw) { z.openErr = t('qzNoCode', { c: code }); return; }
+    const quiz = Q.normalizeQuiz(raw);
+    if (!quiz.qs.length) quiz.qs.push(Q.blankQuestion());
+    qzReset({ mode: 'edit', code, quiz, open: -1, status: 'saved', fresh: false });
+    qzRemember(code, quiz);
+  } catch (e) { console.error(e); z.openErr = t('serverErr'); } finally { z.busy = false; paint(); }
+}
+const QZ_PROB = { noQ: 'qzNeedQ', twoAns: 'qzNeed2', noRight: 'qzNeedRight', starRight: 'qzNeedStar', fourAns: 'qzMax4' };
+function qzSaveLine(z) {
+  if (z.status === 'saving') return t('qzSaving');
+  if (z.status === 'error') return t('qzSaveErr');
+  if (z.code) return t('qzSaved');
+  return t('qzNotYet');
+}
+/** The quiz code, with the reminder to write it down. */
+function qzCodeCard(z) {
+  if (!z.code) return `<div class="card col" style="gap:6px"><span class="lbl">${t('qzCode')}</span><span class="small muted">${t('qzCodeSoon')}</span></div>`;
+  return `<div class="card col qzcode ${z.fresh ? 'fresh' : ''}" style="gap:10px"><div class="row between" style="gap:10px"><div class="col"><span class="lbl">${t('qzCode')}</span><span class="code qzc">${esc(z.code)}</span></div><button class="btn btn-s btn-sm" data-act="qzShare">${t('qzShareCode')}</button></div>${note(false, t('qzWriteDown'), t('qzWriteDownB'))}</div>`;
+}
+function viewQuiz() {
+  const z = S.qz || (qzStart('list'), S.qz);
+  const top = (title, back) => `<div class="row" style="gap:8px">${iconBtn(back, 'back', t('back'))}<div class="col grow"><h1 class="title">${title}</h1></div></div>`;
+  if (z.mode === 'list') {
+    const list = S.myQuizzes.length
+      ? `<div class="col" style="gap:8px">${S.myQuizzes.map((x) => `<button class="card row qzrow" data-act="qzOpen" data-code="${esc(x.code)}"><span class="tile jf c-amber" aria-hidden="true">Qm</span><span class="col grow" style="align-items:flex-start;text-align:left"><span class="card-title">${esc(qzTitle(x.name))}</span><span class="small muted">${t(x.n === 1 ? 'qzMeta1' : 'qzMeta', { n: x.n || 0, c: esc(x.code) })}</span></span></button>`).join('')}</div>`
+      : `<p class="muted" style="margin:0">${t('qzNone')}</p>`;
+    return { cls: '', secs: [
+      ['qh', top(t('qzMine'), 'qzBack') + `<p class="muted" style="margin:0">${t('qzIntro')}</p>`],
+      ['ql', list],
+      ['qb', `<div class="btns"><button class="btn btn-p" data-act="qzNew">${t('qzNew')}</button><div class="pair"><button class="btn btn-s" data-act="qzPasteNew">${t('qzPaste')}</button><button class="btn btn-s" data-act="qzOpenCode">${t('qzOpenCode')}</button></div></div>`],
+      ['qn', note(false, t('qzWriteDown'), t('qzWriteDownAll'))]
+    ] };
+  }
+  if (z.mode === 'open') {
+    return { cls: '', secs: [
+      ['qh', top(t('qzOpenCode'), 'qzList') + `<p class="muted" style="margin:0">${t('qzOpenHint')}</p>`],
+      ['qi', `<div class="col" style="gap:10px"><label class="lbl" for="qzcode">${t('qzCode')}</label><input id="qzcode" class="field code-input" data-qf="openCode" maxlength="9" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go"></div>`],
+      ['qe', z.openErr ? note(false, esc(z.openErr), '') : ''],
+      ['qg', `<button class="btn btn-p" data-act="qzOpenGo" ${z.busy ? 'disabled' : ''}>${z.busy ? t('connecting') : t('qzOpenB')}</button>`]
+    ] };
+  }
+  if (z.mode === 'paste') {
+    const parsed = Q.parsePaste(z.paste), ok = parsed.filter((x) => !x.err);
+    const prev = parsed.map((x) => `<div class="qzprev ${x.err ? 'bad' : ''}"><span class="strong">${esc(x.q || '…')}</span><span class="small muted">${x.o.filter(Boolean).map((o, k) => (k === x.a && !x.err ? '✓ ' : '') + esc(o)).join(' · ')}${x.r ? ' — ' + esc(x.r) : ''}</span>${x.err ? `<span class="small qzbad">${t(QZ_PROB[x.err])}</span>` : ''}</div>`).join('');
+    return { cls: '', secs: [
+      ['qh', top(t('qzPaste'), 'qzPasteBack') + `<p class="small muted" style="margin:0">${t('qzPasteHow')}</p><pre class="qzex">${esc(t('qzPasteEx'))}</pre>`],
+      ['qt', `<textarea class="field qzta" data-qf="paste" rows="9" aria-label="${t('qzPaste')}" placeholder="${esc(t('qzPastePh'))}"></textarea>`],
+      ['qp', parsed.length ? `<span class="lbl">${t('qzReady', { n: ok.length })}${parsed.length > ok.length ? ' · ' + t('qzToFix', { n: parsed.length - ok.length }) : ''}</span><div class="col" style="gap:6px">${prev}</div>` : ''],
+      ['qg', `<button class="btn btn-p" data-act="qzPasteAdd" ${ok.length ? '' : 'disabled'}>${ok.length ? t(ok.length === 1 ? 'qzAdd1' : 'qzAddN', { n: ok.length }) : t('qzNothing')}</button>`]
+    ] };
+  }
+  // edit
+  const qs = z.quiz.qs, ready = qs.filter((y) => !Q.questionProblem(y)).length;
+  const secs = [
+    ['qh', `<div class="row" style="gap:8px">${iconBtn('qzList', 'back', t('back'))}<div class="col grow"><h1 class="title">${t('qzEdit')}</h1><span class="det small muted" role="status">${qzSaveLine(z)}</span></div></div>`],
+    ['qc', qzCodeCard(z)],
+    ['qnm', `<div class="col" style="gap:8px"><label class="lbl" for="qzname">${t('qzName')}</label><input id="qzname" class="field" data-qf="name" maxlength="${Q.LIM.name}" placeholder="${esc(t('qzNamePh'))}" autocomplete="off"></div>`],
+    ['qcount', `<div class="row between"><span class="lbl">${t('qzQs')}</span><span class="small muted">${t(qs.length === 1 ? 'qzCount1' : 'qzCount', { n: qs.length, r: ready })}</span></div>`]
+  ];
+  qs.forEach((y, i) => {
+    if (z.open !== i) {
+      const prob = Q.questionProblem(y);
+      secs.push(['q' + i, `<button class="card qzq" data-act="qzToggle" data-i="${i}"><span class="qzn">${i + 1}</span><span class="col grow" style="align-items:flex-start;text-align:left;gap:2px"><span class="qzt">${esc(y.q || t('qzNewQ'))}</span>${prob ? `<span class="small qzbad">${t(QZ_PROB[prob])}</span>` : `<span class="small qzok">✓ ${esc(y.o[y.a])}</span>`}</span></button>`]);
+      return;
+    }
+    const rows = [0, 1, 2, 3].map((k) => `<div class="row qzopt" style="gap:8px"><button class="qzmark ${y.a === k ? 'on' : ''}" data-act="qzMark" data-i="${i}" data-k="${k}" aria-pressed="${y.a === k}" aria-label="${esc(t('qzMarkL', { l: LETTERS[k] }))}">${y.a === k ? '✓' : LETTERS[k]}</button><input class="field qzin ${y.a === k ? 'right' : ''}" data-qf="q.${i}.o.${k}" maxlength="${Q.LIM.o}" placeholder="${esc(t(k < 2 ? 'qzAns' : 'qzAnsOpt', { l: LETTERS[k] }))}" aria-label="${esc(t('qzAns', { l: LETTERS[k] }))}" autocomplete="off"></div>`).join('');
+    secs.push(['q' + i, `<div class="card col qzq open" style="gap:10px"><div class="row between"><span class="lbl">${t('qzQn', { n: i + 1 })}</span><button class="btn btn-s btn-sm" data-act="qzToggle" data-i="${i}">${t('done')}</button></div>
+      <textarea class="field qzta" data-qf="q.${i}.q" rows="2" maxlength="${Q.LIM.q}" placeholder="${esc(t('qzQPh'))}" aria-label="${esc(t('qzQn', { n: i + 1 }))}"></textarea>
+      <span class="small muted">${t('qzTapRight')}</span>${rows}
+      <input class="field qzref" data-qf="q.${i}.r" maxlength="${Q.LIM.r}" placeholder="${esc(t('qzRefPh'))}" aria-label="${esc(t('qzRefPh'))}" autocomplete="off">
+      <div class="row between"><button class="linkbtn qzdel" data-act="qzDel" data-i="${i}">${t('qzDel')}</button><span class="row" style="gap:6px">${i > 0 ? `<button class="btn btn-s btn-sm" data-act="qzMove" data-i="${i}" data-d="-1" aria-label="${t('qzUp')}">↑</button>` : ''}${i < qs.length - 1 ? `<button class="btn btn-s btn-sm" data-act="qzMove" data-i="${i}" data-d="1" aria-label="${t('qzDown')}">↓</button>` : ''}</span></div></div>`]);
+  });
+  const full = qs.length >= Q.MAX_QUESTIONS;
+  secs.push(['qadd', `<div class="pair"><button class="btn btn-s" data-act="qzAdd" ${full ? 'disabled' : ''}>${t('qzAdd')}</button><button class="btn btn-s" data-act="qzPaste" ${full ? 'disabled' : ''}>${t('qzPasteMany')}</button></div>`]);
+  secs.push(['qplay', `<button class="btn btn-p" data-act="qzPlay" ${ready ? '' : 'disabled'}>${ready ? t('qzPlay') : t('qzNeedOne')}</button>${z.code ? `<div class="row" style="gap:14px;justify-content:center;flex-wrap:wrap"><button class="linkbtn" data-act="qzCopy">${t('qzCopy')}</button><button class="linkbtn" data-act="qzForget">${S.qz.confirmForget && Date.now() - S.qz.confirmForget < 4000 ? t('qzForgetSure') : t('qzForget')}</button></div>` : ''}`]);
+  return { cls: '', secs };
+}
+
 /* =================== Views: home & join =================== */
 function viewHome() {
-  const tiles = L.GAMES.map((g) => `<div class="tile jf c-${g.c}">${esc(g.sym)}</div>`).join('');
+  const tiles = L.GAMES.filter((g) => !g.own).map((g) => `<div class="tile jf c-${g.c}">${esc(g.sym)}</div>`).join('');
   return {
     cls: 'spread',
     secs: [
@@ -246,9 +401,9 @@ function viewHome() {
       ['deco', `<div class="hazard only-cyber" aria-hidden="true"></div>
         <div class="homegrid" aria-hidden="true"><div class="win"><div class="arch only-glass"><div class="rose"></div></div><div class="grid4">${tiles}</div></div><span class="syscode only-cyber">SYS//UR-12 · ROOM</span></div>`],
       ['hero', `<div class="hero"><h1 class="h1">${t('heroTitle')}</h1><p class="sub">${t('heroSub')}</p></div>`],
-      ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? t('connecting') : t('hostRoom')}</button><button class="btn btn-s" data-act="goJoin">${t('joinCode')}</button>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
+      ['btns', `<div class="btns"><button class="btn btn-p" data-act="host" ${S.netBusy ? 'disabled' : ''}>${S.netBusy ? t('connecting') : t('hostRoom')}</button><div class="pair"><button class="btn btn-s" data-act="goJoin">${t('joinCode')}</button><button class="btn btn-s" data-act="myQuizzes">${t('qzMine')}</button></div>${S.netErr ? `<p class="small muted center" role="alert">${esc(S.netErr)}</p>` : ''}</div>`],
       ['about', `<button class="linkbtn" data-act="about">${t('aboutLink')}</button>`],
-      ['card', `<button class="card row between dailycard" data-act="daily"><span class="col" style="align-items:flex-start;text-align:left"><span class="card-title">${t('dailyT')}</span><span class="det small muted">${esc(dailyStatus())}</span></span><span class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></span></button>`]
+      ['card', `<button class="card row between dailycard" data-act="daily"><span class="col" style="align-items:flex-start;text-align:left"><span class="card-title">${t('dailyT')}</span><span class="det small muted">${esc(dailyStatus())}</span></span><span class="wtiles" aria-hidden="true"><span class="wt hit"></span><span class="wt near"></span><span class="wt"></span><span class="wt hit"></span><span class="wt"></span></span></button>`],
     ]
   };
 }
@@ -295,17 +450,56 @@ function viewRoom() {
   return out;
 }
 
-/** Room-wide quiz settings: one Bible book for every game (for church quizzes) and the difficulty. */
+/** Room-wide quiz settings: the Bible books every game draws from (for church quizzes) and the difficulty. */
 const bookName = (b) => C().BOOKS[EN.BOOKS.indexOf(b)] || b;
+/** The quiz books chosen (in Bible order) from a room's meta or a round; [] means all books.
+ *  Older rooms stored one book as `book`. */
+function booksOf(x) {
+  const raw = x && x.books ? (Array.isArray(x.books) ? x.books : Object.values(x.books)) : x && x.book ? [x.book] : [];
+  return P.QUIZ_BOOKS.filter((b) => raw.includes(b));
+}
+/** "All books", "Acts", "Ruth, Acts" or "Ruth, Acts +2". */
+function booksLabel(books) {
+  if (!books.length) return t('allBooks');
+  const names = books.map(bookName);
+  return names.length <= 2 ? names.join(', ') : names.slice(0, 2).join(', ') + ' +' + (names.length - 2);
+}
 function quizCard(meta, game) {
   const q = quizOf(meta);
   const chip = (act, v, label, on) => `<button class="chip ${on ? 'on' : ''}" data-act="${act}" data-v="${esc(v)}" aria-pressed="${on}">${esc(label)}</button>`;
-  const books = [chip('quizBook', '', t('allBooks'), !q.book), ...P.QUIZ_BOOKS.map((b) => chip('quizBook', b, bookName(b), q.book === b))].join('');
   const levels = P.LEVELS.map((l) => chip('level', l, t('lv_' + l), q.level === l)).join('');
-  const note = game.id === 'bk' ? t('bkAllBooks') : q.book ? t('onlyBook', { b: bookName(q.book) }) : t('lvHint_' + q.level);
-  return `<div class="card col" style="gap:12px"><span class="lbl">${t('quizBook')}</span><div class="seg" role="group" aria-label="${t('quizBook')}">${books}</div><span class="lbl">${t('difficulty')}</span><div class="seg" role="group" aria-label="${t('difficulty')}">${levels}</div><span class="small muted">${esc(note)}${q.book && game.id !== 'bk' ? ' ' + esc(t('lvHint_' + q.level)) : ''}</span></div>`;
+  const note = game.id === 'bk' ? t('bkAllBooks') : q.books.length ? t(q.books.length === 1 ? 'onlyBook' : 'onlyBooks', { b: q.books.map(bookName).join(', ') }) : t('lvHint_' + q.level);
+  const dd = `<button class="dd" data-act="bookSheet" aria-haspopup="dialog"><span class="grow">${esc(booksLabel(q.books))}</span>${q.books.length > 2 ? `<span class="dd-n">${q.books.length}</span>` : ''}<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg></button>`;
+  return `<div class="card col" style="gap:12px"><span class="lbl">${t('quizBook')}</span>${dd}<span class="lbl">${t('difficulty')}</span><div class="seg" role="group" aria-label="${t('difficulty')}">${levels}</div><span class="small muted">${esc(note)}${q.books.length && game.id !== 'bk' ? ' ' + esc(t('lvHint_' + q.level)) : ''}</span></div>`;
+}
+/** Pick one or more quiz books. Each tap saves straight to the room. */
+function sheetBooks() {
+  const q = quizOf((S.room && S.room.meta) || {}), all = !q.books.length;
+  const tick = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M5 12l5 5 9-10"></path></svg>';
+  const row = (v, label, on) => `<button class="bkpick ${on ? 'on' : ''}" data-act="quizBook" data-v="${esc(v)}" role="checkbox" aria-checked="${on}"><span class="box">${on ? tick : ''}</span><span>${esc(label)}</span></button>`;
+  return sheetWrap(`<h2 class="title md center" id="sheetTitle" tabindex="-1">${t('quizBook')}</h2>
+    <p class="small muted center" style="margin:0">${t('pickBooks')}</p>
+    ${row('', t('allBooks'), all)}
+    <div class="bkgrid">${P.QUIZ_BOOKS.map((b) => row(b, bookName(b), q.books.includes(b))).join('')}</div>`, t('done'));
 }
 
+/** Team play: fixed for some games; a choice for Your Quiz. `x` is the game's settings or the round. */
+const teamsOn = (gid, x) => !!L.gameById(gid).teams || (gid === 'qm' && !!(x && x.teams));
+/** Lobby settings for Your Quiz: which quiz, its order, seconds and team play. */
+function qmCard(meta, set, seg) {
+  const cur = (meta.qz && meta.qz.code) || '';
+  const mine = S.myQuizzes.slice(0, 8);
+  if (cur && !mine.some((x) => x.code === cur)) mine.unshift({ code: cur, name: meta.qz.name, n: meta.qz.n });
+  const picks = mine.length
+    ? `<div class="col" style="gap:6px">${mine.map((x) => `<button class="chip qzpick ${x.code === cur ? 'on' : ''}" data-act="qzPick" data-code="${esc(x.code)}" aria-pressed="${x.code === cur}"><span class="grow">${esc(qzTitle(x.name))}</span><span class="qzpn">${t('qzNQs', { n: x.n || 0 })}</span></button>`).join('')}</div>`
+    : `<p class="small muted" style="margin:0">${t('qzNoneHere')}</p>`;
+  const two = (k, a, b) => `<div class="seg" role="group">${[[0, a], [1, b]].map(([v, l]) => `<button class="chip ${(set[k] ? 1 : 0) === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${(set[k] ? 1 : 0) === v}">${l}</button>`).join('')}</div>`;
+  return `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(L.gameById('qm')))}</span><span class="small">${esc(gHow(L.gameById('qm')))}</span>
+    <span class="lbl">${t('qzWhich')}</span>${picks}<button class="btn btn-s btn-sm" data-act="qzFromLobby">${t('qzWriteEdit')}</button>
+    <span class="lbl">${t('qzOrder')}</span>${two('mix', t('qzInOrder'), t('qzShuffle'))}
+    <span class="lbl">${t('secsEach')}</span>${seg('secs', L.SETTINGS.qm.secs, kn() ? ' ಸೆ' : 's')}
+    <span class="lbl">${t('qzPlayAs')}</span>${two('teams', t('qzEveryone'), t('qzTeams'))}</div>`;
+}
 function hostLobby() {
   const r = S.room, meta = r.meta, list = playerList();
   const game = L.gameById(meta.game || 'vs'), set = settingsFor(game.id), opts = L.SETTINGS[game.id];
@@ -316,18 +510,18 @@ function hostLobby() {
   const botRow = `<div class="row" style="gap:8px;flex-wrap:wrap"><button class="btn btn-s btn-sm" data-act="addBot" ${list.length >= L.MAX_PLAYERS ? 'disabled' : ''}>${t('addBot')}</button>${nBots ? `<button class="btn btn-s btn-sm" data-act="removeBots">${nBots === 1 ? t('removeBot') : t('removeBots')}</button>` : ''}</div>`;
   const tour = tourOf(meta), tl = tour.on ? tour.games : [];
   const tiles = L.GAMES.map((g) => g.ready
-    ? `<button class="gtile jf c-${g.c} ${g.id === game.id ? 'is-sel' : ''} ${tl.includes(g.id) ? 'in-tour' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span>${tl.includes(g.id) ? `<span class="tb" aria-label="${esc(t('tourGame', { a: tl.indexOf(g.id) + 1, b: tl.length }))}">${tl.indexOf(g.id) + 1}</span>` : `<span>${esc(gMode(g))}</span>`}</span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`
+    ? `<button class="gtile jf c-${g.c} ${g.own ? 'gwide' : ''} ${g.id === game.id ? 'is-sel' : ''} ${tl.includes(g.id) ? 'in-tour' : ''}" data-act="pick" data-g="${g.id}" aria-pressed="${g.id === game.id}"><span class="gn"><span>${g.n}</span>${tl.includes(g.id) ? `<span class="tb" aria-label="${esc(t('tourGame', { a: tl.indexOf(g.id) + 1, b: tl.length }))}">${tl.indexOf(g.id) + 1}</span>` : `<span>${esc(gMode(g))}</span>`}</span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`
     : `<button class="gtile jf c-${g.c}" disabled aria-label="${esc(t('comingSoon', { g: gName(g) }))}"><span class="gn"><span>${g.n}</span><span>${t('soon')}</span></span><span class="gs">${esc(g.sym)}</span><span class="gname">${esc(gName(g))}</span></button>`).join('');
   const seg = (k, vals, unit) => `<div class="seg" role="group" aria-label="${k}">${vals.map((v) => `<button class="chip ${set[k] === v ? 'on' : ''}" data-act="set" data-k="${k}" data-v="${v}" aria-pressed="${set[k] === v}">${v}${unit}</button>`).join('')}</div>`;
   const secs = [
     ['top', `<div class="card col" style="gap:14px"><div class="row between"><div class="col"><span class="lbl">${t('roomCode')}</span><span class="code">${esc(S.code)}</span></div><div class="row" style="gap:6px">${iconBtn('share', 'share', t('shareInvite'))}${iconBtn('qr', 'qr', t('showQr'))}${iconBtn('menu', 'menu', t('settings'))}</div></div>${roster}${botRow}</div>`],
     ['glbl', `<div class="row between"><h2 class="title sm">${t('pickGame')}</h2><span class="small muted">${list.length === 1 ? t('onePlayer') : t('nPlayers', { n: list.length })}</span></div>`],
     ['grid', `<div class="win"><div class="grid3">${tiles}</div></div>`],
-    ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : game.id === 'hu' ? t('turns') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
-    ['quiz', quizCard(meta, game)],
+    game.own ? ['set', qmCard(meta, set, seg)] : ['set', `<div class="card col" style="gap:12px"><span class="card-title">${esc(gName(game))}</span><span class="small">${esc(gHow(game))}</span><span class="lbl">${game.id === 'tr' ? t('questions') : game.id === 'hu' ? t('turns') : t('rounds')}</span>${seg('rounds', opts.rounds, '')}<span class="lbl">${t('secsEach')}</span>${seg('secs', opts.secs, kn() ? ' ಸೆ' : 's')}</div>`],
+    ['quiz', game.own ? '' : quizCard(meta, game)],
     ['tour', tourCard(tour)]
   ];
-  if (game.teams) {
+  if (teamsOn(game.id, set)) {
     const col = (tc) => {
       const ps = list.filter((p) => p.team === tc);
       return `<div class="team-col jf c-${tc === 'ruby' ? 'ruby' : 'sapphire'}"><span class="team-n">${teamName(tc)}</span>${ps.length ? ps.map((p) => `<span class="small">${esc(p.name)}</span>`).join('') : `<span class="small">${t('noOneYet')}</span>`}</div>`;
@@ -338,20 +532,21 @@ function hostLobby() {
   secs.push(['hostplay', `<div class="card col" style="gap:10px"><div class="row between"><div class="col"><span class="card-title">${t('playAsWell')}</span><span class="small muted">${hp ? t('hpOn') : t('hpOff')}</span></div><button class="switch ${hp ? 'on' : ''}" data-act="hostPlays" role="switch" aria-checked="${hp}" aria-label="${t('playAsWell')}"><span></span></button></div>${hp ? `<div class="row" style="gap:10px"><label class="lbl" for="hostName">${t('yourName')}</label><input id="hostName" class="field" data-draft="name" maxlength="16" autocomplete="nickname" style="min-height:48px"></div>` : ''}</div>`]);
   const closeLbl = Date.now() - S.confirmClose < 4000 ? t('tapClose') : t('closeRoom');
   const tourShort = tour.on && tl.length < L.TOUR_MIN;
-  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length && !tourShort ? '' : 'disabled'}>${!list.length ? t('waitingPlayers') : tourShort ? t('tourNeed') : tour.on ? t('tourStart', { n: tl.length }) : t('startG', { g: esc(gName(game)) })}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
+  const noQuiz = (tour.on ? tl.includes('qm') : game.own) && !(meta.qz && meta.qz.code);
+  secs.push(['start', `<button class="btn btn-p" data-act="start" ${list.length && !tourShort && !noQuiz ? '' : 'disabled'}>${!list.length ? t('waitingPlayers') : tourShort ? t('tourNeed') : noQuiz ? t('qzPickFirst') : tour.on ? t('tourStart', { n: tl.length }) : t('startG', { g: esc(gName(game)) })}</button><button class="btn btn-s" data-act="closeRoom">${closeLbl}</button>`]);
   return { cls: '', secs };
 }
 
-const quizTag = (rd) => [rd.book && rd.game !== 'bk' ? bookName(rd.book) : '', t('lv_' + (rd.level || 'm'))].filter(Boolean).join(' · ');
+const quizTag = (rd) => rd.game === 'qm' ? qzTitle((rd.qz || {}).name) : [booksOf(rd).length && rd.game !== 'bk' ? booksLabel(booksOf(rd)) : '', t('lv_' + (rd.level || 'm'))].filter(Boolean).join(' · ');
 function introSecs(rd, forPlayer) {
   const g = L.gameById(rd.game);
   let extra = '';
-  if (forPlayer && g.teams) {
+  if (forPlayer && teamsOn(g.id, rd)) {
     const me = players()[S.net.uid] || {};
     extra = `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${t('youreOn')}</span><span class="team-s sm">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span></div>`;
   }
   return [
-    ['h', head(esc(gName(g)), (tourRunning(S.room.meta) ? esc(t('tourGame', { a: tourOf(S.room.meta).k + 1, b: tourOf(S.room.meta).games.length })) + ' · ' : '') + (forPlayer ? t('getReady') : t(['tr', 'fv', 'tt'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs })) + ' · ' + esc(quizTag(rd)))],
+    ['h', head(esc(gName(g)), (tourRunning(S.room.meta) ? esc(t('tourGame', { a: tourOf(S.room.meta).k + 1, b: tourOf(S.room.meta).games.length })) + ' · ' : '') + (forPlayer ? t('getReady') : t(['tr', 'fv', 'tt', 'qm'].includes(g.id) ? 'nQs' : 'nRounds', { n: rd.n, s: rd.secs })) + ' · ' + esc(quizTag(rd)))],
     ['intro', `<div class="card col" style="gap:12px;align-items:center;text-align:center"><span class="lbl">${t('startingIn')}</span><span class="big count" data-ends="${rd.endsAt}">${L.secondsLeft(rd.endsAt, S.net ? S.net.now() : Date.now())}</span><span class="small">${esc(gHow(g))}</span></div>${extra}`]
   ];
 }
@@ -365,7 +560,7 @@ function hostControls(rd) {
 const OPT_C = ['ruby', 'sapphire', 'emerald', 'amber', 'teal'];
 const LETTERS = 'ABCDE';
 const itemOf = (rd) => rd.seq[rd.i];
-const roundOf = (rd) => t(['tr', 'fv', 'tt'].includes(rd.game) ? 'qOf' : rd.game === 'hu' ? 'tOf' : 'rOf', { i: rd.i + 1, n: rd.n });
+const roundOf = (rd) => t(['tr', 'fv', 'tt', 'qm'].includes(rd.game) ? 'qOf' : rd.game === 'hu' ? 'tOf' : 'rOf', { i: rd.i + 1, n: rd.n });
 const countIn = (ans) => Object.values(ans).filter((a) => typeof a.a === 'number').length;
 const answeredRow = (ans, label = t('answersIn')) => `<div class="row between"><span class="lbl">${label}</span><span class="small">${t('xOfY', { a: countIn(ans), b: activeUids().length })}</span></div>`;
 const teamTotals = (rd) => ({ ruby: ((rd.teamPts || {}).ruby) || 0, sapphire: ((rd.teamPts || {}).sapphire) || 0 });
@@ -628,6 +823,17 @@ function hostPlay() {
     } else secs.push(['cnt', answeredRow(ans, t('votesIn'))]);
   }
 
+  if (rd.game === 'qm') {
+    const y = qmQ(rd, item), right = y.a, long = y.opts.some((o) => o.length > 28);
+    if (rd.teams) { const tt = teamTotals(rd); secs.push(['teams', teamCards(tt.ruby, tt.sapphire)]); }
+    secs.push(['q', `<div class="card col" style="gap:6px"><span class="lbl">${esc(qzTitle((rd.qz || {}).name))}</span><span class="title md qzqt">${esc(y.q)}</span></div>`]);
+    secs.push(['opts', optRows(y.opts, right, reveal, ans, reveal, long)]);
+    if (reveal) {
+      firstNote(!!res.first, t('wasFirst', { n: esc(pName(res.first)) }), y.r ? esc(y.r) : t('answerWasL', { l: LETTERS[right] }));
+      if (res.order.length) secs.push(['res', resultList(res.order, (uid, i) => `${i === 0 ? t('first') : ord(i + 1)} · ${fmtT(Math.max(0, ((ans[uid] || {}).at || rd.startedAt) - rd.startedAt))}`, res.pts)]);
+    } else secs.push(['cnt', answeredRow(ans)]);
+  }
+
   if (rd.game === 'tl') {
     const right = G.correctOption('tl', item, data);
     secs.push(['card', `<div class="card col" style="gap:6px"><span class="lbl">${t('whereGo')}</span><span class="title md">${esc(C().TIMELINE[item][0])}</span><span class="det small muted">${reveal ? esc(C().TIMELINE[item][1]) : t('pickGap')}</span></div>`]);
@@ -747,7 +953,7 @@ function hostResults() {
   const line = rd.game === 'ex' ? esc(exSummary(rd)) : top ? t('takesIt', { n: esc(top.name) }) : t('gameOver');
   let sub = '';
   if (rd.game === 'tr') { const cc = L.countClaims(rd.claims); sub = teamLine(cc.ruby, cc.sapphire, t('inTribes')); }
-  if (rd.game === 'fv' || rd.game === 'hu') { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
+  if (rd.game === 'fv' || rd.game === 'hu' || (rd.game === 'qm' && rd.teams)) { const tt = teamTotals(rd); sub = teamLine(tt.ruby, tt.sapphire, t('inPoints')); }
   const out = {
     cls: '',
     secs: [
@@ -776,7 +982,7 @@ function playerWait() {
     ['next', `<div class="card row" style="gap:14px"><div class="tile jf c-${g.c} tile-lg" aria-hidden="true">${esc(g.sym)}</div><div class="col"><span class="lbl">${t('upNext')}</span><span class="card-title">${esc(gName(g))}</span><span class="det small muted">${esc(gMode(g))}</span></div></div>`]
   ];
   if (tourRunning(meta)) secs.push(['tour', `<div class="card col" style="gap:4px"><span class="lbl">${t('tourT')}</span><span class="small">${esc(tourOf(meta).games.map((x, i) => `${i + 1}. ${gName(L.gameById(x))}`).join('  '))}</span></div>`]);
-  if (g.teams) secs.push(['team', `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span><button class="btn btn-s btn-sm" data-act="switchTeam">${t('switchTeam')}</button></div>`]);
+  if (teamsOn(g.id, settingsFor(g.id))) secs.push(['team', `<div class="team jf c-${me.team === 'sapphire' ? 'sapphire' : 'ruby'}"><span class="team-n">${teamName(me.team === 'sapphire' ? 'sapphire' : 'ruby')}</span><button class="btn btn-s btn-sm" data-act="switchTeam">${t('switchTeam')}</button></div>`]);
   secs.push(['ready', `<button class="btn ${me.ready ? 'btn-s' : 'btn-p'}" data-act="ready" aria-pressed="${!!me.ready}">${me.ready ? t('readyWaiting') : t('imReady')}</button>`]);
   return { cls: '', secs };
 }
@@ -861,6 +1067,16 @@ function playerPlay() {
     else secs.push(['n', `<span class="lbl">${t('tapLie')}</span>`]);
   }
 
+  if (rd.game === 'qm') {
+    const y = qmQ(rd, item), right = y.a, long = y.opts.some((o) => o.length > 28);
+    if (rd.teams) secs.push(['team', `<div class="team jf c-${team}"><span class="team-n">${teamName(team)}</span>${reveal ? `<span class="small">${det}</span>` : timer(rd.endsAt, 'tpill')}</div>`]);
+    else secs.push(['h', head(esc(qzTitle((rd.qz || {}).name)), det, reveal ? null : rd.endsAt, 'tpill')]);
+    secs.push(['q', `<h1 class="title md qzqt" style="line-height:1.2">${esc(y.q)}</h1>`]);
+    secs.push(['opts', optButtons(y.opts, picked, right, reveal, true, long)]);
+    if (reveal) choiceResult(right, `${typeof mine.at === 'number' ? t('yourTime', { t: fmtT(Math.max(0, mine.at - rd.startedAt)) }) : ''}${esc(y.r)}`, t('qzItWas', { a: esc(y.opts[right] || '') }) + (y.r ? ' ' + esc(y.r) : ''));
+    else if (picked !== null) secs.push(['n', `<div class="pill" role="status">${t('voteInQ')}</div>`]);
+  }
+
   if (rd.game === 'tl') {
     const right = G.correctOption('tl', item, data), anchors = data.anchors;
     secs.push(['h', head(t('whereGo'), `${esc(gName(g))} · ${det}`, reveal ? null : rd.endsAt, 'tpill')]);
@@ -902,7 +1118,7 @@ function playerPlay() {
   if (rd.game === 'pc') {
     const e = C().EMOJI[item], drawer = (rd.data || {}).drawer, dr = players()[drawer] || {}, mineTurn = drawer === uid;
     secs.push(['h', head(esc(mineTurn && !reveal ? t('pcYouDraw') : t('pcDraws', { n: dr.name || t('someone') })), det, reveal ? null : rd.endsAt, 'tpill')]);
-    if (mineTurn && !reveal) secs.push(['word', `<div class="card row between" style="gap:10px;align-items:center"><div class="col"><span class="lbl">${t('pcDrawThis')}</span><span class="card-title">${esc(e.a)}</span></div><span class="small muted" style="max-width:40%">${t('pcNoLetters')}</span></div>`]);
+    if (mineTurn && !reveal) secs.push(['word', `<div class="pcword" role="status"><div class="col"><span class="pcw-l">${t('pcDrawThis')}</span><strong class="pcw-w">${esc(e.a)}</strong></div><span class="pcw-n">${t('pcNoLetters')}</span></div>`]);
     secs.push(['canvas', pcCanvas(rd)]);
     if (reveal) {
       secs.push(['ans', `<div class="card col" style="gap:4px;align-items:center;text-align:center"><span class="title md">${esc(e.a)}</span><span class="det small muted">${esc(e.ref)}</span></div>`]);
@@ -1019,8 +1235,8 @@ function playerResults() {
 }
 
 /* ----- Sheets ----- */
-function sheetWrap(inner) {
-  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${inner}<button class="btn btn-s" data-act="closeSheet">${t('close')}</button></div></div>`;
+function sheetWrap(inner, closeLabel) {
+  return `<div class="sheet-wrap" data-act="closeSheetBg"><div class="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">${inner}<button class="btn ${closeLabel ? 'btn-p' : 'btn-s'}" data-act="closeSheet">${closeLabel || t('close')}</button></div></div>`;
 }
 function sheetMenu() {
   const inRoom = S.view === 'room' && S.room && S.room.meta;
@@ -1120,12 +1336,12 @@ async function cleanOldRooms(keep) {
   save(MY_ROOMS, mine);
 }
 
-async function startHost() {
+async function startHost(extra) {
   try { await ensureNet(); } catch { return; }
   cleanOldRooms((load('ur.session', null) || {}).code).catch(() => {});
   for (let tries = 0; tries < 8; tries++) {
     const code = L.makeCode();
-    const meta = { host: S.net.uid, created: Date.now(), status: 'lobby', game: 'vs', theme: S.prefs.theme, v: 1 };
+    const meta = { host: S.net.uid, created: Date.now(), status: 'lobby', game: 'vs', theme: S.prefs.theme, v: 1, ...(extra || {}) };
     try {
       if (await S.net.create(`rooms/${code}/meta`, meta)) { touchRoom(code); enterRoom(code, 'host'); return; }
     } catch (e) { console.error(e); S.netErr = t('createErr'); paint(); return; }
@@ -1169,48 +1385,79 @@ const contentLength = G.contentLength;
 const SEEN_KEY = 'ur.seen';
 function loadSeen() { try { return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}') || {}; } catch { return {}; } }
 function saveSeen(all) { try { localStorage.setItem(SEEN_KEY, JSON.stringify(all)); } catch { /* private mode: in memory only */ } S.seen = all; }
-const quizOf = (meta) => ({ book: P.QUIZ_BOOKS.includes(meta.book) ? meta.book : '', level: P.LEVELS.includes(meta.level) ? meta.level : 'm' });
+const quizOf = (meta) => ({ books: booksOf(meta), level: P.LEVELS.includes(meta.level) ? meta.level : 'm' });
+/** The quiz settings a round was started with. */
+const rdQuiz = (rd) => ({ books: booksOf(rd), level: rd.level || 'm' });
+/** Key for the no-repeat list: game, books and level. */
+const seenKey = (g, q) => [g, q.books.join(',') || 'all', q.level].join('|');
 const poolFor = (g, q) => (g === 'bk' ? [] : P.eligible(g, contentLength(g), EN, q, 3));
 
 function hostStartGame(only) {
   touchRoom(S.code);
   const meta = S.room.meta, g = only || meta.game || 'vs', set = settingsFor(g), now = S.net.now(), q = quizOf(meta);
+  if (g === 'qm') return hostStartQuiz(set);
   let seq;
   if (g === 'bk') seq = L.pickSeq(contentLength(g), set.rounds);
   else if (g === 'hu' || g === 'ex') seq = [...Array(set.rounds).keys()]; // turns / locks; cards and clues are dealt at each one
   else {
-    const all = S.seen || loadSeen(), key = [g, q.book || 'all', q.level].join('|');
+    const all = S.seen || loadSeen(), key = seenKey(g, q);
     const r = P.pickFresh(poolFor(g, q), set.rounds, all[key] || []);
     seq = r.seq; saveSeen({ ...all, [key]: r.seen });
   }
   const n = seq.length;
   const upd = {
     'meta/status': 'playing', 'meta/game': g, answers: null,
-    round: { game: g, phase: 'intro', i: -1, n, secs: G.secsFor(set.secs, q.level), level: q.level, book: q.book, seq, endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
+    round: { game: g, phase: 'intro', i: -1, n, secs: G.secsFor(set.secs, q.level), level: q.level, books: q.books.length ? q.books : null, seq, endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
   };
   playerList().forEach((p) => {
     upd[`players/${p.uid}/score`] = 0; upd[`players/${p.uid}/correct`] = 0; upd[`players/${p.uid}/ready`] = false;
-    if (L.gameById(g).teams && p.team !== 'ruby' && p.team !== 'sapphire') upd[`players/${p.uid}/team`] = 'ruby';
+    if (teamsOn(g, set) && p.team !== 'ruby' && p.team !== 'sapphire') upd[`players/${p.uid}/team`] = 'ruby';
   });
   write(S.net.update(roomPath(), upd));
+}
+/** Your Quiz: the host reads the quiz once and puts the questions in the round, so every phone has them. */
+async function hostStartQuiz(set) {
+  const pick = S.room.meta.qz || {};
+  if (!pick.code) { toast(t('qzPickFirst')); return; }
+  let raw;
+  try { raw = await S.net.get('quizzes/' + pick.code); } catch (e) { console.error(e); toast(t('serverErr')); return; }
+  const qs = Q.playableList(raw || {});
+  if (!qs.length) { toast(t('qzEmpty')); return; }
+  const name = Q.normalizeQuiz(raw).name, now = S.net.now(), seq = Q.quizOrder(qs.length, !!set.mix), teams = !!set.teams;
+  const upd = {
+    'meta/status': 'playing', 'meta/game': 'qm', 'meta/qz': { code: pick.code, name, n: qs.length }, answers: null,
+    round: { game: 'qm', phase: 'intro', i: -1, n: seq.length, secs: set.secs, seq, teams, qz: { code: pick.code, name, qs }, endsAt: now + L.INTRO_MS, claims: null, teamPts: null, hist: null }
+  };
+  playerList().forEach((p) => {
+    upd[`players/${p.uid}/score`] = 0; upd[`players/${p.uid}/correct`] = 0; upd[`players/${p.uid}/ready`] = false;
+    if (teams && p.team !== 'ruby' && p.team !== 'sapphire') upd[`players/${p.uid}/team`] = 'ruby';
+  });
+  return write(S.net.update(roomPath(), upd));
+}
+/** A Your Quiz question from the round (the database may turn the lists into objects). */
+function qmQ(rd, item) {
+  const qs = (rd.qz && rd.qz.qs) || [], y = (Array.isArray(qs) ? qs : Object.values(qs))[item] || {};
+  const opts = Array.isArray(y.opts) ? y.opts : Object.values(y.opts || {});
+  return { q: y.q || '', opts, a: typeof y.a === 'number' ? y.a : 0, r: y.r || '' };
 }
 function hostStartRound(i) {
   const rd = S.room.round, now = S.net.now();
   if (rd.game === 'ex') {
-    const q = { book: rd.book || '', level: rd.level || 'm' }, all = S.seen || loadSeen(), key = ['ex', q.book || 'all', q.level].join('|');
+    const q = rdQuiz(rd), all = S.seen || loadSeen(), key = seenKey('ex', q);
     const r = P.pickFresh(poolFor('ex', q), G.exDigits(q.level), all[key] || []);
     saveSeen({ ...all, [key]: r.seen });
     return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { facts: r.seq }, res: null });
   }
   if (rd.game === 'pc') return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { drawer: G.pcDrawer(playerList(), i) }, res: null });
+  if (rd.game === 'qm') { const y = qmQ(rd, rd.seq[i]); return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { a: y.a, k: y.opts.length }, res: null }); }
   if (rd.game === 'hu') {
     const who = G.huGuesser(playerList(), i);
-    const q = { book: rd.book || '', level: rd.level || 'm' }, all = S.seen || loadSeen(), key = ['hu', q.book || 'all', q.level].join('|');
+    const q = rdQuiz(rd), all = S.seen || loadSeen(), key = seenKey('hu', q);
     const r = P.pickFresh(P.eligible('hg', EN.HANGMAN.length, EN, q, 3), G.HU_CARDS, all[key] || []);
     saveSeen({ ...all, [key]: r.seen });
     return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: { guesser: who ? who.uid : '', team: who ? who.team : 'ruby', cards: r.seq }, res: null });
   }
-  return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: G.roundData(rd.game, rd.seq[i], Math.random, { pool: poolFor(rd.game, { book: rd.book || '', level: rd.level || 'm' }), level: rd.level }), res: null });
+  return S.net.update(roomPath() + '/round', { phase: 'play', i, startedAt: now, endsAt: now + rd.secs * 1000, data: G.roundData(rd.game, rd.seq[i], Math.random, { pool: poolFor(rd.game, rdQuiz(rd)), level: rd.level }), res: null });
 }
 function scoreRound(rd, ans) {
   const item = rd.seq[rd.i];
@@ -1241,7 +1488,7 @@ function hostReveal() {
     const team = (players()[res.first] || {}).team === 'sapphire' ? 'sapphire' : 'ruby';
     L.tribesFor(rd.i, rd.n).forEach((t) => { upd[`round/claims/${t}`] = team; });
   }
-  if (rd.game === 'fv' || rd.game === 'hu') {
+  if (rd.game === 'fv' || rd.game === 'hu' || (rd.game === 'qm' && rd.teams)) {
     const tp = rd.teamPts || {};
     upd['round/teamPts/ruby'] = (tp.ruby || 0) + teamAdd.ruby;
     upd['round/teamPts/sapphire'] = (tp.sapphire || 0) + teamAdd.sapphire;
@@ -1275,7 +1522,7 @@ function hostTick() {
     const all = L.allDone(rd.game, ans, activeUids().filter((u) => !(rd.game === 'pc' && u === (rd.data || {}).drawer)));
     if (now >= rd.endsAt) hostStep(hostReveal);
     else if (rd.game === 'ex' && Object.values(ans).some((a) => a && a.ok)) hostStep(hostReveal);
-    else if (all && rd.game === 'tt') {
+    else if (all && (rd.game === 'tt' || rd.game === 'qm')) {
       // Two Truths: votes can change, so wait 3 s after everyone has voted (any change restarts it).
       const sig = rd.i + ':' + JSON.stringify(ans);
       if (S.ttWait.sig !== sig) S.ttWait = { sig, at: now };
@@ -1297,7 +1544,7 @@ function botsPlay(rd, now) {
   playerList().filter((p) => p.bot).forEach((p) => {
     if (G.isDone(rd.game, ans[p.uid])) return;
     const correct = G.CHOICE.includes(rd.game) ? G.correctOption(rd.game, item, data) : 0;
-    const plan = L.botPlan(rd.game, key, p.uid, rd.secs, correct);
+    const plan = L.botPlan(rd.game, key, p.uid, rd.secs, correct, data.k);
     const send = (stage, val) => {
       const id = key + p.uid + stage;
       if (botSent.has(id)) return;
@@ -1573,6 +1820,56 @@ const A = {
     if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
     try { await navigator.clipboard.writeText(text); toast(t('copied')); } catch { window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener'); }
   },
+  /* Your Quiz */
+  myQuizzes: () => { S.sheet = null; qzStart('list'); },
+  qzBack: () => { const back = S.qz ? S.qz.back : 'home'; S.qz = null; S.view = back === 'room' && S.code ? 'room' : 'home'; },
+  qzList: () => { if (S.qz.mode === 'edit') qzSave(); qzReset({ mode: 'list', code: null, quiz: { name: '', qs: [Q.blankQuestion()] }, open: 0, status: '', openErr: '' }); },
+  qzNew: () => { qzReset({ mode: 'edit', code: null, quiz: { name: '', qs: [Q.blankQuestion()] }, open: 0, status: '', fresh: false }); },
+  qzPasteNew: () => { qzReset({ mode: 'paste', code: null, quiz: { name: '', qs: [] }, open: -1, status: '', paste: '', fresh: false }); },
+  qzOpenCode: () => { Object.assign(S.qz, { mode: 'open', openCode: '', openErr: '' }); },
+  qzOpenGo: () => { const c = Q.cleanQuizCode(S.qz.openCode); if (!Q.QUIZ_CODE_RE.test(c)) { S.qz.openErr = t('qzCodeSix'); return; } qzOpen(c); },
+  qzOpen: (el) => { qzOpen(el.dataset.code); },
+  qzToggle: (el) => { const i = +el.dataset.i; S.qz.open = S.qz.open === i ? -1 : i; if (S.qz.dirty) qzSaveSoon(200); },
+  qzMark: (el) => { const y = S.qz.quiz.qs[+el.dataset.i]; if (y) { y.a = +el.dataset.k; qzSaveSoon(300); } },
+  qzAdd: () => { const qs = S.qz.quiz.qs; if (qs.length >= Q.MAX_QUESTIONS) return; qs.push(Q.blankQuestion()); S.qz.open = qs.length - 1; setTimeout(() => { const f = document.querySelector(`[data-qf="q.${qs.length - 1}.q"]`); if (f) { f.focus(); f.scrollIntoView({ block: 'center' }); } }, 50); },
+  qzDel: (el) => {
+    const z = S.qz, i = +el.dataset.i;
+    z.quiz.qs.splice(i, 1); if (!z.quiz.qs.length) z.quiz.qs.push(Q.blankQuestion());
+    z.open = -1; qzSaveSoon(300);
+  },
+  qzMove: (el) => { const z = S.qz, i = +el.dataset.i, j = i + Number(el.dataset.d), qs = z.quiz.qs; if (j < 0 || j >= qs.length) return; [qs[i], qs[j]] = [qs[j], qs[i]]; z.open = j; qzSaveSoon(300); },
+  qzPaste: () => { S.qz.mode = 'paste'; S.qz.paste = ''; },
+  qzPasteBack: () => { const z = S.qz; if (z.code || z.quiz.qs.length) { z.mode = 'edit'; if (!z.quiz.qs.length) z.quiz.qs.push(Q.blankQuestion()); } else z.mode = 'list'; },
+  qzPasteAdd: () => {
+    const z = S.qz, add = Q.parsePaste(z.paste).filter((x) => !x.err).map(({ q, o, a, r }) => ({ q, o, a, r }));
+    const keep = z.quiz.qs.filter((y) => y.q.trim() || y.o.some((o) => o.trim())); // drop the empty starter question
+    z.quiz.qs = keep.concat(add).slice(0, Q.MAX_QUESTIONS);
+    Object.assign(z, { mode: 'edit', open: -1, paste: '', dirty: true });
+    qzSave();
+  },
+  qzShare: async () => {
+    const z = S.qz, text = t('qzShareText', { n: qzTitle(z.quiz.name), c: z.code, u: location.origin + location.pathname });
+    if (navigator.share) { try { await navigator.share({ text }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    try { await navigator.clipboard.writeText(text); toast(t('qzCopied')); } catch { toast(t('qzCodeIs', { c: z.code })); }
+  },
+  qzCopy: () => { const z = S.qz; qzSave(); qzReset({ code: null, status: '', fresh: false, quiz: { name: ((z.quiz.name ? z.quiz.name + ' ' : '') + t('qzCopyName')).slice(0, Q.LIM.name), qs: z.quiz.qs.map((y) => ({ ...y, o: y.o.slice() })) } }); z.dirty = true; qzSave(); },
+  qzForget: () => {
+    const z = S.qz;
+    if (!z.confirmForget || Date.now() - z.confirmForget > 4000) { z.confirmForget = Date.now(); setTimeout(paint, 4100); return; }
+    S.myQuizzes = S.myQuizzes.filter((x) => x.code !== z.code); save(MYQ, S.myQuizzes);
+    qzReset({ mode: 'list', code: null, confirmForget: 0 });
+  },
+  qzPlay: async () => {
+    const z = S.qz; await qzSave();
+    if (!z.code) return;
+    const pick = { code: z.code, name: Q.normalizeQuiz(z.quiz).name, n: Q.playableList(z.quiz).length };
+    S.qz = null;
+    if (S.code && S.role === 'host' && S.room && S.room.meta) { S.view = 'room'; write(S.net.update(roomPath() + '/meta', { game: 'qm', qz: pick })); paint(); return; }
+    S.view = 'home'; paint();
+    startHost({ game: 'qm', qz: pick });
+  },
+  qzPick: (el) => { const x = S.myQuizzes.find((q) => q.code === el.dataset.code); if (x) write(S.net.update(roomPath() + '/meta', { qz: { code: x.code, name: x.name || '', n: x.n || 0 } })); },
+  qzFromLobby: () => { qzStart('list', 'room'); },
   goJoin: () => { S.view = 'join'; S.joinErr = ''; },
   back: () => { S.view = 'home'; if (history.replaceState && params.has('daily')) history.replaceState(null, '', location.pathname); },
   home: () => leaveRoomLocal(),
@@ -1599,7 +1896,12 @@ const A = {
   tourEnd: () => write(S.net.update(roomPath(), { 'meta/status': 'final' })),
   tourDone: () => write(S.net.update(roomPath(), { 'meta/status': 'lobby', 'meta/tour/k': 0, 'meta/tour/hist': null, round: null, answers: null })),
   set: (el) => { const g = S.room.meta.game || 'vs'; write(S.net.update(`${roomPath()}/meta/settings/${g}`, { ...settingsFor(g), [el.dataset.k]: Number(el.dataset.v) })); },
-  quizBook: (el) => write(S.net.update(`${roomPath()}/meta`, { book: el.dataset.v || null })),
+  bookSheet: () => { S.sheet = 'books'; },
+  quizBook: (el) => {
+    const v = el.dataset.v, cur = booksOf(S.room.meta);
+    const next = !v ? [] : cur.includes(v) ? cur.filter((b) => b !== v) : P.QUIZ_BOOKS.filter((b) => b === v || cur.includes(b));
+    write(S.net.update(`${roomPath()}/meta`, { books: next.length ? next : null, book: null }));
+  },
   level: (el) => write(S.net.update(`${roomPath()}/meta`, { level: el.dataset.v })),
   shuffleTeams: () => {
     const t = L.shuffleTeams(playerList().map((p) => p.uid)), upd = {};
@@ -1652,7 +1954,7 @@ const A = {
   answer: (el) => {
     const rd = S.room.round, mine = (((S.room.answers || {})[rd.i]) || {})[S.net.uid];
     if (rd.phase !== 'play' || S.net.now() >= rd.endsAt) return;
-    if (mine && typeof mine.a === 'number' && (rd.game !== 'tt' || mine.a === Number(el.dataset.i))) return;
+    if (mine && typeof mine.a === 'number' && (!['tt', 'qm'].includes(rd.game) || mine.a === Number(el.dataset.i))) return;
     vibrate(20);
     write(S.net.set(myAnsPath(), { a: Number(el.dataset.i), at: S.net.TS }));
   },
@@ -1685,6 +1987,12 @@ document.addEventListener('click', (ev) => {
 });
 document.addEventListener('input', (ev) => {
   const el = ev.target;
+  if (el.dataset && el.dataset.qf) {
+    qfSet(el.dataset.qf, el.value);
+    if (el.dataset.qf === 'openCode' && el.value !== S.qz.openCode) el.value = S.qz.openCode;
+    paint(); // safe: field values aren't in the HTML, so only the parts that changed are redrawn
+    return;
+  }
   if (!el.dataset || !el.dataset.draft) return;
   let v = el.value;
   if (el.dataset.draft === 'code') { v = L.cleanCode(v); if (el.value !== v) el.value = v; }
@@ -1707,6 +2015,7 @@ document.addEventListener('keydown', (ev) => {
   if (ev.key === 'Escape' && S.sheet) { S.sheet = null; paint(); }
   if (ev.key === 'Enter' && ev.target.id === 'code') { ev.preventDefault(); const n = document.getElementById('name'); n && n.focus(); }
   if (ev.key === 'Enter' && ev.target.id === 'name') { ev.preventDefault(); doJoin(); }
+  if (ev.key === 'Enter' && ev.target.id === 'qzcode') { ev.preventDefault(); A.qzOpenGo(); paint(); }
 });
 
 /* =================== Service worker & updates =================== */

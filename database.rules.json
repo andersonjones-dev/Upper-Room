@@ -2,6 +2,13 @@
   "rules": {
     ".read": false,
     ".write": false,
+    "quizzes": {
+      "$code": {
+        ".read": "auth != null",
+        ".write": "auth != null && newData.exists()",
+        ".validate": "$code.matches(/^[A-HJ-NP-Z2-9]{6}$/) && newData.hasChildren(['name', 'qs']) && newData.child('name').isString() && newData.child('name').val().length <= 60 && newData.child('qs').numChildren() <= 60"
+      }
+    },
     "rooms": {
       "$code": {
         ".read": "auth != null",

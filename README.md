@@ -2,7 +2,7 @@
 
 Bible party games where everyone plays on their own phone. One phone hosts and becomes "the table" (timer, scores, the map); everyone else joins with a four-letter code or by scanning a QR code. No accounts. Works on iPhone and Android in the browser, and can be added to the Home Screen.
 
-**Version 2.1.0, all 12 games:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline, Bible Pictionary, Heads Up, Bible Wordle and Exodus Escape. Plus a Daily Bible Wordle to play on your own, and Tournament night (several games, one champion). In Bible Wordle any five letters can be guessed, and tapping a box clears it.
+**Version 2.2.0, 12 games plus Your Quiz:** Verse Scramble, Twelve Tribes Trivia, Emoji Bible, Finish the Verse, Bible Hangman, Two Truths & a Lie, Books Sort, Bible Timeline, Bible Pictionary, Heads Up, Bible Wordle and Exodus Escape, and **Your Quiz** (questions a quiz master writes). Plus a Daily Bible Wordle to play on your own, and Tournament night (several games, one champion). New in 2.2.0: Your Quiz, several quiz books at once (a drop-down instead of 12 buttons), and the word to draw in Pictionary stands out on the drawer's phone.
 
 **Content:** 64 KJV verses, 140 trivia questions, 104 emoji puzzles, 112 hangman words, 40 Two Truths sets, 59 timeline events and all 66 books. Verses were generated from the KJV text, so they're word-for-word exact; references were checked against it.
 
@@ -23,6 +23,8 @@ Bible party games where everyone plays on their own phone. One phone hosts and b
 2. Tap **Build → Realtime Database → Rules**.
 3. Delete everything in the box and paste the whole contents of `database.rules.json` from this repo.
 4. Tap **Publish**.
+
+**Publish the rules again after updating to 2.2.0.** Your Quiz saves quizzes under `quizzes/`, which the old rules don't allow, so quizzes can't be saved until the new rules are published.
 
 ### 2. Check anonymous sign-in is on
 **Build → Authentication → Sign-in method → Anonymous** should say *Enabled*.
@@ -45,13 +47,15 @@ Open the link in Safari → Share → **Add to Home Screen**.
 
 **Testing on your own:** in the lobby, tap **Add practice bot** (up to 20 players in total). Bots are run by the host's phone: they answer at random times and get roughly two out of three right. **Remove bots** takes them all out.
 
-**Quiz book (for church Bible quizzes):** pick one of Genesis, Exodus, Joshua, Judges, Ruth, 1 Samuel, Esther, Daniel, Matthew, Luke, John or Acts, and every game uses only that book (Books Sort always uses all 66 books). **All books** mixes everything.
+**Quiz books (for church Bible quizzes):** tap the drop-down and tick one or more of Genesis, Exodus, Joshua, Judges, Ruth, 1 Samuel, Esther, Daniel, Matthew, Luke, John and Acts; every game then uses only those books (Books Sort always uses all 66 books). **All books** mixes everything.
 
 **Difficulty:** every question, verse, word and event is tagged Easy, Medium or Hard. Easy uses the best-known ones; Medium adds the medium ones; Hard uses everything, takes a quarter off the timer, gives 4 Hangman lives instead of 6 and mixes 2 stray pieces from another verse into Verse Scramble.
 
 **Daily Bible Wordle:** the card on the start screen. Everyone gets the same Bible word each day (it changes at midnight on each phone), with no room needed. Six tries; tap a box to clear it and type into it; any letters are accepted. The phone keeps the streak, win % and guess counts, and **Share result** sends the coloured squares (never the letters) with a link. Every word comes up once before any repeats. The stats live on that phone only.
 
 **Tournament night:** in the lobby, turn on **Tournament night** and tap 2 to 5 games in the order to play them (tap a name in the list to change that game's rounds and seconds). After each game its places become tournament points: 1st 10, 2nd 8, 3rd 6, then 5, 4, 3, 2 and 1; tied scores share the place and a score of 0 gets nothing. The results show the running table; after the last game (or **End tournament**) everyone sees the champion and each game's points.
+
+**Your Quiz (for quiz masters):** **My quizzes** on the start screen, or **Write, edit or open a quiz** in the lobby when Your Quiz is picked. Write questions with 2 to 4 answers (tap the circle by the right one) and an optional Bible reference shown at the reveal, or **Paste questions** from Notes or WhatsApp: a question, then each answer on its own line with `*` before the right one, a blank line between questions, and `Ref:` for a reference. Up to 60 questions per quiz. Every change saves online by itself; the first save gives the quiz a 6-character **quiz code**. The code is the only way to open the quiz on another phone (**Open with a code**), so the app asks the quiz master to write it down. Anyone with the code can open and change the quiz; **Make a copy** gives a quiz its own new code. **Remove from this phone** only takes it off that phone's list: quizzes are never deleted online. In the lobby, pick the quiz, **In my order** or **Shuffle**, the seconds per question, and **Everyone** or **Two teams**. Scoring is like Two Truths: right answers 100, the first right answer 200, and changing your answer restarts your time. Players see the quiz master's words exactly as typed, in any language. Your Quiz can also be one of the games in a tournament.
 
 **Old rooms:** each host phone remembers the rooms it opened. When it hosts again, it deletes its own rooms that haven't been used for a day (no database change needed). Rooms from before 2.1.0, or from phones that never host again, stay until deleted in the Firebase console.
 
@@ -72,6 +76,7 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `js/trivia.js` | Trivia questions with references. |
 | `js/emoji.js` | Emoji puzzles and the answers each one accepts. |
 | `js/games.js` | Round set-up and right answers for each game, Hard-mode rules (tested). |
+| `js/quiz.js` | Your Quiz: quiz codes, reading pasted questions, which questions are ready to play (tested). |
 | `js/pool.js` | Quiz book and difficulty filters, the no-repeat rule, and which timeline events can be shown together (tested). |
 | `js/config.js` | Firebase settings and the default theme. |
 | `js/net-firebase.js` | Talks to Firebase. |
@@ -85,7 +90,7 @@ If a phone drops out or the app is closed, opening it again rejoins the same roo
 | `database.rules.json` | Who can write what in the database. |
 
 ## Privacy
-Players type a first name and pick a colour; nothing else is collected. Rooms are stored in Firebase while they're open; the host's **Close room** deletes the room.
+Players type a first name and pick a colour; nothing else is collected. Rooms are stored in Firebase while they're open; the host's **Close room** deletes the room. Quizzes written in Your Quiz are kept online under their quiz code and are never deleted by the app.
 
 ## Known limits (v1)
 - If the host's phone goes offline mid-game, the game pauses until it comes back (players see a note).
@@ -102,7 +107,8 @@ node tests/e2e-wordle.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Bible W
 node tests/e2e-headsup.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Heads Up turns, teams, mixed languages
 node tests/e2e-pictionary.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # drawing syncs, guesses, artist points
 node tests/e2e-escape.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # Exodus Escape: split clues, wrong-code lock, shared points
-node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # quiz book (Ruth) + Hard, no repeats
+node tests/e2e-quiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # book picker, quiz book (Ruth) + Hard, no repeats
+node tests/e2e-yourquiz.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots # Your Quiz: write, paste, code, play, open on another phone
 node tests/e2e-daily.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots  # daily Wordle: solve, stats, share, resume, Kannada
 node tests/e2e-tour.cjs http://127.0.0.1:8765/upper-room/ /tmp/shots   # tournament night: list, points, ties, champion
 node tests/e2e-cleanup.cjs http://127.0.0.1:8765/upper-room/           # host deletes only its own day-old rooms

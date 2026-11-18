@@ -5,7 +5,7 @@ import { content } from './text.js';
 import { tlComparable } from './pool.js';
 
 /** Games where everyone picks one option and the first right answer earns a bonus. */
-export const CHOICE = ['tr', 'fv', 'tl', 'tt'];
+export const CHOICE = ['tr', 'fv', 'tl', 'tt', 'qm'];
 export const MAX_WRONG = 6;
 export const BOOK_SET = 6;
 
@@ -93,6 +93,7 @@ export function correctOption(g, item, data) {
   if (g === 'tt') return data.opt.indexOf(2);
   if (g === 'fv') return data.opt.indexOf(item);
   if (g === 'tl') return data.anchors.filter((a) => a < item).length;
+  if (g === 'qm') return typeof data.a === 'number' ? data.a : -1; // Your Quiz: the host puts the right answer in the round
   return -1;
 }
 

@@ -389,3 +389,37 @@ test('tournament points by place, ties share, totals', async () => {
   assert.deepEqual(tb.map((r) => [r.uid, r.total, r.wins]), [['a', 28, 2], ['b', 24, 1], ['z', 8, 0]]);
   assert.deepEqual(tb[2].per, [0, 0, 8]);
 });
+
+test('quiz codes, paste parsing and playable questions', async () => {
+  const Q = await import('../js/quiz.js');
+  for (let i = 0; i < 300; i++) assert.match(Q.makeQuizCode(), Q.QUIZ_CODE_RE);
+  assert.equal(Q.cleanQuizCode(' 7kd-2pm '), '7KD2PM');
+  const p = Q.parsePaste('1. Who replaced Judas?\na) Barsabas\nb) *Matthias\nc) Stephen\nRef: Acts 1:26\n\n\nHow many were added at Pentecost?\n120\nAbout 3000 *\n\nNo star here\nOne\nTwo\n\nToo few\n*Only one\n\nToo many\n*A\nB\nC\nD\nE');
+  assert.equal(p.length, 5);
+  assert.deepEqual(p[0], { q: 'Who replaced Judas?', o: ['Barsabas', 'Matthias', 'Stephen', ''], a: 1, r: 'Acts 1:26', err: '' });
+  assert.deepEqual([p[1].a, p[1].o[1], p[1].err], [1, 'About 3000', '']);
+  assert.deepEqual(p.slice(2).map((x) => x.err), ['starRight', 'twoAns', 'fourAns']);
+  const kn = Q.parsePaste('ಯೂದನ ಸ್ಥಾನಕ್ಕೆ ಯಾರು?\nಬಾರ್ಸಬ\n*ಮತ್ತೀಯ\nವಚನ: ಅ.ಕೃ. 1:26');
+  assert.deepEqual([kn[0].a, kn[0].o[1], kn[0].r, kn[0].err], [1, 'ಮತ್ತೀಯ', 'ಅ.ಕೃ. 1:26', '']);
+  // the database turns arrays into objects and drops blanks
+  const fromDb = Q.normalizeQuiz({ name: '  Acts  ', qs: { 1: { q: 'B?', o: { 0: 'x', 2: 'y' }, a: 2 }, 0: { q: 'A?', o: ['p', 'q'], a: 1, r: 'Acts 2' } } });
+  assert.deepEqual(fromDb, { name: 'Acts', qs: [{ q: 'A?', o: ['p', 'q', '', ''], a: 1, r: 'Acts 2' }, { q: 'B?', o: ['x', '', 'y', ''], a: 2, r: '' }] });
+  assert.deepEqual(Q.playable(fromDb.qs[1]), { q: 'B?', opts: ['x', 'y'], a: 1, r: '' });
+  assert.equal(Q.questionProblem({ q: '', o: ['a', 'b', '', ''], a: 0 }), 'noQ');
+  assert.equal(Q.questionProblem({ q: 'Q', o: ['a', '', '', ''], a: 0 }), 'twoAns');
+  assert.equal(Q.questionProblem({ q: 'Q', o: ['a', 'b', '', ''], a: 3 }), 'noRight');
+  assert.equal(Q.playableList({ qs: [{ q: 'Q', o: ['a'] }, { q: 'R', o: ['a', 'b'], a: 0 }] }).length, 1);
+  const mix = Q.quizOrder(10, true); assert.deepEqual([...mix].sort((a, b) => a - b), [...Array(10).keys()]);
+  assert.deepEqual(Q.quizOrder(3, false), [0, 1, 2]);
+  const list = Q.rememberQuiz(Q.rememberQuiz([], { code: 'AAAAAA', name: 'a' }), { code: 'BBBBBB', name: 'b' });
+  assert.deepEqual(Q.rememberQuiz(list, { code: 'AAAAAA', name: 'a2' }).map((x) => x.name), ['a2', 'b']);
+});
+
+test('quiz books: several books at once', async () => {
+  const P = await import('../js/pool.js'); const C = await import('../js/content.js');
+  const two = P.eligible('tr', C.TRIVIA.length, C, { books: ['Ruth', 'Acts'], level: 'h' });
+  assert.ok(two.length > 0 && two.every((i) => ['Ruth', 'Acts'].includes(P.tagOf('tr', i, C).book)));
+  const ruth = P.eligible('tr', C.TRIVIA.length, C, { books: ['Ruth'], level: 'h' }), acts = P.eligible('tr', C.TRIVIA.length, C, { book: 'Acts', level: 'h' });
+  assert.equal(two.length, ruth.length + acts.length);
+  assert.equal(P.eligible('tr', C.TRIVIA.length, C, { books: [], level: 'h' }).length, C.TRIVIA.length);
+});

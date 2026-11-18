@@ -24,7 +24,9 @@ export const GAMES = [
   { id: 'tr', n: '11', sym: '12', name: 'Twelve Tribes', mode: 'Teams', c: 'amethyst', ready: true, teams: true,
     how: 'Two teams. The first right answer to each question claims land on the map for their team.' },
   { id: 'hg', n: '12', sym: 'Hg', name: 'Bible Hangman', mode: 'Race', c: 'teal', ready: true,
-    how: 'Everyone solves the same hidden word on their own phone, one letter at a time. Six wrong letters and you are out. Fastest solve wins.' }
+    how: 'Everyone solves the same hidden word on their own phone, one letter at a time. Six wrong letters and you are out. Fastest solve wins.' },
+  { id: 'qm', n: '13', sym: 'Qm', name: 'Your Quiz', mode: 'Quiz', c: 'amber', ready: true, own: true,
+    how: 'Questions written by your quiz master. Everyone answers on their own phone; every right answer scores 100 and the first right answer 200. You can change your answer until time runs out, but changing resets your time.' }
 ];
 export const gameById = (id) => GAMES.find((g) => g.id === id) || GAMES[1];
 
@@ -40,7 +42,8 @@ export const SETTINGS = {
   wd: { rounds: [3, 5, 8], secs: [90, 120, 180], def: { rounds: 3, secs: 120 } },
   hu: { rounds: [4, 6, 8], secs: [45, 60, 90], def: { rounds: 4, secs: 60 } },
   pc: { rounds: [3, 5, 8], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } },
-  ex: { rounds: [3, 5], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } }
+  ex: { rounds: [3, 5], secs: [60, 90, 120], def: { rounds: 5, secs: 90 } },
+  qm: { secs: [15, 20, 30, 60], def: { secs: 20, mix: 0, teams: 0 } }
 };
 
 export const COLORS = ['ruby', 'sapphire', 'emerald', 'amber', 'amethyst', 'teal'];
@@ -213,7 +216,7 @@ export function allDone(game, ans, uids) {
   return uids.every((u) => {
     const a = ans && ans[u];
     if (!a) return false;
-    if (['tr', 'fv', 'tl', 'tt'].includes(game)) return typeof a.a === 'number';
+    if (['tr', 'fv', 'tl', 'tt', 'qm'].includes(game)) return typeof a.a === 'number';
     if (game === 'hg' || game === 'wd') return !!(a.ok || a.out);
     return !!a.ok;
   });
@@ -247,12 +250,12 @@ export function seeded(seed) {
 }
 
 /** What one bot does this round: when it answers, and whether it gets it right. */
-export function botPlan(game, roundKey, uid, secs, correct = 0) {
+export function botPlan(game, roundKey, uid, secs, correct = 0, nOpts = 4) {
   const r = seeded(roundKey + ':' + uid);
   const span = secs * 1000;
   if (game === 'vs') return { ok: r() < 0.75, at: Math.round((0.25 + 0.55 * r()) * span) };
-  if (['tr', 'fv', 'tl', 'tt'].includes(game)) {
-    const n = game === 'tl' ? 5 : game === 'tt' ? 3 : 4;
+  if (['tr', 'fv', 'tl', 'tt', 'qm'].includes(game)) {
+    const n = game === 'tl' ? 5 : game === 'tt' ? 3 : game === 'qm' ? Math.max(2, nOpts) : 4;
     const ok = r() < (game === 'tt' ? 0.55 : 0.65);
     const at = Math.round((0.15 + 0.55 * r()) * span);
     return { ok, at, a: ok ? correct : (correct + 1 + Math.floor(r() * (n - 1))) % n };
