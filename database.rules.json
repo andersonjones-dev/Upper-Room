@@ -6,7 +6,7 @@
       "$code": {
         ".read": "auth != null",
         ".write": "auth != null && newData.exists()",
-        ".validate": "$code.matches(/^[A-HJ-NP-Z2-9]{6}$/) && newData.hasChildren(['name', 'qs']) && newData.child('name').isString() && newData.child('name').val().length <= 60 && newData.child('qs').numChildren() <= 60"
+        ".validate": "$code.matches(/^[A-HJ-NP-Z2-9]{6}$/) && newData.hasChildren(['name', 'qs']) && newData.child('name').isString() && newData.child('name').val().length <= 60 && !newData.child('qs/60').exists()"
       }
     },
     "rooms": {
